@@ -1,0 +1,14 @@
+# 生成物与运行日志不入库
+#
+# 理由有二：
+#   1. 它们是 ly-spec-build / Skill 的产出，可由源数据（规范包 + manifest）完整重建。
+#      入库会让 diff 噪音淹没真正的规范变更——改了包之后快照全变，看不出改了什么。
+#   2. 快照内容带有具体项目的规范组合结果，属于实例数据而非可复用资产。
+#
+# 需要的快照用一条命令重建：
+#   python3 00_工作空间配置/skills/ly-spec-build/scripts/spec_build.py --all
+
+spec-effective/
+logs/*.jsonl
+
+# 保留：state/（追溯链依赖，不可再生）、index/（编号总表）、memory/（历史约定）、logs/README.md

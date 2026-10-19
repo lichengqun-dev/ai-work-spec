@@ -1,0 +1,83 @@
+# 批次状态文件模板
+#
+# 复制到 .ai/state/<批次号>.yaml
+# 批次号格式：<项目码大写>-<YYYYMMDD>-<三位序号>，如 PROJ-20261019-001
+#
+# 本文件是**断点续做能力的载体**：接手一个批次时先读它，
+# 不需要读任何文档就知道卡在哪一步、上一步产出了什么、有什么没解决的问题。
+
+batch: <批次号>
+project: <项目码>
+type: new                  # new | resume | change
+created: <ISO8601 带时区>
+owner: <批次负责人>
+current_step: init         # 与 steps 中某个 name 对应
+
+# 生效规范快照的哈希：回答"这个批次开发时用的是哪版规范"
+# 值取自 .ai/logs/spec-build.jsonl 最近一次该项目的记录
+spec_snapshot:
+  path: .ai/spec-effective/<项目码>.md
+  hash: <snapshot_hash>
+  built_at: <ISO8601>
+
+steps:
+  - name: init
+    skill: ai-requirement-01-init
+    version: 2.5.0
+    status: pending         # pending | in_progress | done | skipped | failed
+    started: null
+    finished: null
+  - name: analysis
+    skill: ai-requirement-02-analysis
+    version: 2.5.0
+    status: pending
+  - name: prototype
+    skill: ai-requirement-03-prototype
+    version: 2.5.0
+    status: pending
+  - name: prd
+    skill: ai-requirement-04-prd
+    version: 2.5.0
+    status: pending
+
+gates:
+  - id: gate-01
+    status: pending         # pending | passed | failed | waived
+    at: null
+    by: null                # auto | <人名>
+    note: null
+
+artifacts: []
+# 示例：
+# artifacts:
+#   - path: docs/01_需求/需求功能分析.md
+#     hash: sha256:ab12...
+#     fn_ids: [FN-CORE-045, FN-CORE-046]
+#     produced_by: ai-requirement-02-analysis@2.5.0
+
+pending_questions: []
+# 示例：
+# pending_questions:
+#   - id: Q-001
+#     question: 导出是否包含已归档数据？
+#     affects: [REQ-CORE-012, FN-CORE-045]
+#     need_answer_from: 业务方
+#     raised_at: 2026-10-19T10:12:00+08:00
+
+waivers: []
+# 门禁豁免记录。豁免不自动续期，到期生成复查提醒。
+# 示例：
+# waivers:
+#   - gate: gate-03
+#     reason: 客户要求当日上线，契约变更待补
+#     approved_by: 李四
+#     at: 2026-10-19T18:00:00+08:00
+#     review_at: 2026-10-26        # 7 天后自动提醒
+
+archived: false            # 归档后置 true，文件转为只读
+
+# ── 更新纪律 ─────────────────────────────────────────────
+# 1. 只有 Skill 写本文件，不手工编辑（手工改动会导致产出物哈希校验失败）
+# 2. 批次归档后本文件只读，**不得删除** —— 追溯链依赖它
+# 3. steps 中 status=done 的步骤在续做时不重跑；若其产出物哈希变化，
+#    提示"产出物被外部修改"，由人决定是否重跑
