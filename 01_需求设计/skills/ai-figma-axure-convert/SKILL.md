@@ -5,6 +5,7 @@ stage: 01_需求设计
 owner: 待指定
 updated: 2026-10-19
 applicable_stacks: []
+status: not_implemented
 ---
 
 # 能力声明

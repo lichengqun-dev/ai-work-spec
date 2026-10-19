@@ -6,6 +6,7 @@ owner: 知识库 Owner
 updated: 2026-10-19
 applicable_stacks: []
 model_tier: none
+status: implemented
 ---
 
 # 能力声明

@@ -5,6 +5,7 @@ stage: 08_归档交付
 owner: 待指定
 updated: 2026-10-19
 applicable_stacks: []
+status: not_implemented
 ---
 
 # 能力声明

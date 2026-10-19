@@ -5,6 +5,7 @@ stage: 00_工作空间配置
 owner: 知识库 Owner
 updated: 2026-10-19
 applicable_stacks: []
+status: implemented
 ---
 
 # 能力声明
