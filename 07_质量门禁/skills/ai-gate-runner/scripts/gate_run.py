@@ -1087,9 +1087,14 @@ def report(ctx: Ctx, status: str, results, manual, write: bool, refusal: str = "
     elif status == "failed":
         print("\n  → 门禁不通过，不可进入下一阶段。修正 BLOCK 项后重跑。")
     elif status == "pending_manual":
+        try:
+            script = Path(__file__).resolve().relative_to(ctx.root).as_posix()
+        except ValueError:
+            script = Path(__file__).name
         print(f"\n  → 待人工确认。核对上方清单后执行：")
-        print(f"     python3 {Path(__file__).name} --project {ctx.project} --batch {ctx.batch_id} "
+        print(f"     python3 {script} --project {ctx.project} --batch {ctx.batch_id} "
               f"--gate {g.gate_id} --confirm --by <你的名字>")
+        print(f"     （路径相对仓库根，可直接复制执行）")
         print(f"     （若上方有 BLOCK 级 skip，--confirm 会被拒绝——那些项需要 --waive）")
     elif status == "passed":
         print("\n  → 门禁通过。")

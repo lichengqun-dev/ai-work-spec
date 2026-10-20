@@ -4,7 +4,7 @@
 
 | 知识 | 位置 |
 |---|---|
-| 测试报告 | `docs/03_测试/测试报告.md`（上线建议与遗留风险的来源） |
+| 测试报告 | `docs/04_测试/测试报告.md`（上线建议与遗留风险的来源） |
 | 数据库设计 | `docs/02_设计/数据库设计.md`（DDL 与回滚脚本） |
 | 门禁检查项 | `07_质量门禁/skills/ai-gate-runner/references/检查项清单.md`（`rollout-plan-present`） |
 | 项目版本约定 | 项目文档仓或 `projects/<项目码>/project.yaml` |

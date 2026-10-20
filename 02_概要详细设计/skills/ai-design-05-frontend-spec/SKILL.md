@@ -77,4 +77,7 @@ status: implemented
 
 - 上游：`ai-requirement-03-prototype`、`ai-design-02-detail`、`ai-design-04-api`
 - 下游：`ai-dev-03-frontend`
-- 注意：本 Skill **不产出** gate-03 校验的设计产出物类型（`design`），但它属于设计阶段，其产出应登记到批次状态文件
+- 注意：产出路径 `docs/02_设计/前端设计.md` **含「设计」二字**，因此它**是** gate-03 的 `design` 类产出物，
+  会被 `fn-coverage-design`、`fn-design-section`、`decision-recorded` 三项检查读到——
+  所以本文件里的 FN 也要按 `## FN-XXX-000 <名称>` 的形式分节，不要写成散文。
+  （此前这里写的是「本 Skill 不产出 design 类产出物」，与执行器的路径匹配规则相反，会误导写法）

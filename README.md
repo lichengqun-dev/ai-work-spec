@@ -168,20 +168,20 @@ ai-work-spec/
 
 ## Skill 清单
 
-共 **36 个**，其中 **34 个已实现**、**2 个为占位**（`status: not_implemented`，前置条件会拒绝执行）。
+共 **36 个，全部已实现**。
 
 | 域 | Skill | 状态 |
 |---|---|---|
 | 工作空间配置 | `ai-spec-build` 规范编译器 / `ai-spec-promote` 项目特例提升为共享包 | ✅ |
 | 需求设计 | `ai-requirement-00-intake` 批次入口判定 / `01-init` 初始化双仓库 / `02-analysis` 需求结构化 / `03-prototype` 原型产出 / `04-prd` 读原型生成 PRD / `autopilot` 编排全流程 | ✅ |
-| 需求设计 | `ai-figma-axure-convert` 设计稿转原型（需先有原型的真实产出作为格式基准） | ⏳ 待实现 |
+| 需求设计 | `ai-figma-axure-convert` 设计稿转原型（产出须与 `ai-requirement-03-prototype` 同构） | ✅ |
 | 概要详细设计 | `ai-design-01-arch` 架构 / `02-detail` 详细设计 / `03-db` 数据库 / `04-api` 接口契约 / `05-frontend-spec` 前端设计 / `06-review` 设计评审 | ✅ |
 | 编码开发 | `ai-dev-01-scaffold` 骨架 / `02-backend` 后端 / `03-frontend` 前端 / `04-unittest` 单测 / `05-codereview` 代码评审 / `06-docsync` 文档回流 | ✅ |
 | 测试验证 | `ai-test-01-cases` 用例 / `02-automation` 自动化 / `03-execute` 执行与缺陷 / `04-regression` 回归圈定 / `05-report` 报告 | ✅ |
 | 迭代开发 | `ai-iteration-01-impact` 影响面 / `02-delta-spec` 增量设计 / `03-change-control` 变更登记 / `04-release` 发布 | ✅ |
 | 日常开发 | `ai-daily-01-fastlane` 快车道 / `02-hotfix` 热修 / `03-techdebt` 技术债 / `04-qa` 答疑 | ✅ |
 | 质量门禁 | `ai-gate-runner` 统一门禁执行器（25 个检查项，纯脚本） | ✅ |
-| 归档交付 | `ai-archive-01-close` 批次结项与断链检测 | ⏳ P2 |
+| 归档交付 | `ai-archive-01-close` 批次结项与断链检测（**gate-06 的产出方**） | ✅ |
 
 命名规则：阶段 Skill 为 `ai-<域>-<序号>-<动作>`；编排类加 `-autopilot`；工具类加 `-runner` / `-convert` 且不受域枚举约束。
 
@@ -217,7 +217,9 @@ ai-work-spec/
 
 **各阶段必须串行。** P1 的契约冻结依赖 P0 的编号体系；P2 的影响面分析依赖 P1 产出的依赖关系图。并行推进必然返工。
 
-**当前进度：P0、P1、P2 已完成。** 剩余 P3 为资产沉淀与度量（领域模型、组件库、故障案例库、度量指标），属持续投入，无固定交付节点。
+**当前进度：P0、P1、P2 已完成，36 个 Skill 全部实现。**
+剩余 P3 为资产沉淀与度量（领域模型、组件库、故障案例库、度量指标）。
+**但 P3 主要靠真实批次的数据积累**——在跑过真实需求之前，填规范包与度量基线基本都是凭空写。
 
 当前基线内容：团队基线 **37 条** + 包内条目 **30 条**，共 67 条规范。规范包状态为 `skeleton` / `partial`——**不要指望它们现在就能约束代码质量**，条目要靠真实批次反推逐步填充。
 
