@@ -90,45 +90,104 @@ REQ（需求条目）→ FN（功能点）→ PAGE / API / TBL（原型页 / 接
 
 区分 `BLOCK` 与 `WARN`——如果所有检查项都是阻断项，团队会在第一次被卡住后要求关掉整道门禁。豁免必须留痕且 7 天后自动复查，**没有自动复查的豁免机制等于没有门禁**。
 
-门禁不是纸面制度：`ai-gate-runner` 是纯脚本执行器，读取门禁定义里的 `auto:<检查项 ID>` 逐项校验，结果写回批次状态文件。它有两条刻意保留的语义：
+门禁不是纸面制度：`ai-gate-runner` 是纯脚本执行器，读取门禁定义里的 `auto:<检查项 ID>` 逐项校验，结果写回批次状态文件。它有三条刻意保留的语义（具体命令见[如何使用 · 三、跑门禁](#三跑门禁)）：
 
-- **`skip` 不等于 `pass`。** 缺少校验材料（项目仓未挂载、依赖的 Skill 尚未实现）时记为 `skip`，转入人工确认并说明"要做什么才能自动校验"。把"没法校验"当成"校验通过"，是门禁最容易失效的方式。
+- **`skip` 不等于 `pass`。** 缺少校验材料时记为 `skip`，转入人工确认并说明"要做什么才能自动校验"。把"没法校验"当成"校验通过"，是门禁最容易失效的方式。
+- **BLOCK 级 `skip` 不能用 `--confirm` 越过**，只能 `--waive`。签核的前提是"有人核对过了"，材料不存在时无从核对。
 - **执行器不替人拍板。** 标注 `人` 的检查项原样列出等人工核对；门禁不会自动变绿，需要 `--confirm --by <名字>` 显式签核——门禁记录的价值在于能回答"谁在什么时候确认的"。
-
-```bash
-S=07_质量门禁/skills/ai-gate-runner/scripts/gate_run.py
-python3 $S --list-checks                                        # 检查项库
-python3 $S --project <码> --batch <批次号> --all                 # 按顺序跑到第一个未通过
-```
 
 ---
 
-## 快速开始
+## 如何使用
 
-**前置要求**：Python 3.8+ 与 PyYAML（`pip install pyyaml`）。
+**前置要求**：Python 3.8+ 与 PyYAML（`pip install pyyaml`）。以下命令都在仓库根目录执行。
+
+### 一、接入一个新项目（一次性，目标 ≤ 30 分钟）
 
 ```bash
 git clone https://github.com/lichengqun-dev/ai-work-spec.git
 cd ai-work-spec
+S=00_工作空间配置/skills/ai-spec-build/scripts/spec_build.py
 
-# 1. 看有哪些规范包可选
-python3 00_工作空间配置/skills/ai-spec-build/scripts/spec_build.py --list
-
-# 2. 接入一个项目
+python3 $S --list                    # 1. 看有哪些规范包可选
 cp -r projects/_template projects/<你的项目码>
-#    编辑 projects/<你的项目码>/project.yaml：选包 + 写差异
-
-# 3. 编译出生效规范快照
-python3 00_工作空间配置/skills/ai-spec-build/scripts/spec_build.py --project <你的项目码>
+                                     # 2. 编辑 project.yaml：填仓库路径 + 选包 + 写差异
+python3 $S --project <你的项目码>      # 3. 编译出生效规范快照
 ```
 
-产出的 `.ai/spec-effective/<项目码>.md` 就是**实际要遵守的规范全文**——分「常驻注入 / 按需检索索引 / 来源链 / 项目声明摘要」四段。不要逐个去读包文件。
+产出的 `.ai/spec-effective/<你的项目码>.md` 就是**这个项目实际要遵守的规范全文**——
+分「常驻注入 / 按需检索索引 / 来源链 / 项目声明摘要」四段。**不要逐个去读包文件**；
+它有变更时重新编译即可（见「四、改规范」）。
 
-接入一个新项目的目标耗时 **≤ 30 分钟**。超过说明包粒度太细（选项太多）或 manifest 结构太复杂——这是衡量分层设计是否成功的硬指标。
+`project.yaml` 里唯一容易填错的是**仓库路径**：它是四个字段，`repo` 只是兜底。
+文档仓 / 原型仓 / 代码仓分开时要用 `docs_repo` / `prototype_repo` / `code_repo` 分别指定——
+一个字段承担三种语义会让门禁的路径解析出错。详见 [`projects/README.md`](./projects/README.md)。
 
-### `ai-spec-build` 的 8 条校验
+### 二、跑一个批次
 
-任一失败即中止，**不产出半成品快照**：
+先判定走哪条路径，再按该路径的步骤走。**路径判定由 `ai-requirement-00-intake` 负责，不要自己凭感觉选**：
+
+| 路径 | 适用 | 起点 |
+|---|---|---|
+| **新建** | 从零到一的新系统 | `ai-requirement-00-intake` → 全部 23 步 |
+| **迭代** | 已有系统加功能 / 改行为 | `ai-iteration-01-impact` → 增量设计 → 增量开发 → 回归 |
+| **快车道** | 小改动、工单（有量化准入条件） | `ai-daily-01-fastlane`，**允许跳步但必须登记台账** |
+
+确定路径后会生成批次状态文件，它是**接手一个批次时的第一个读物**：
+
+```bash
+cat .ai/state/<批次号>.yaml     # 卡在哪一步、上一步产出了什么、有什么没解决的问题
+```
+
+之后每一步都由 AI 按对应 Skill 的三件套执行：读 `SKILL.md` 确认能不能做 → 按 `prompt.md` 执行 →
+产出物登记到状态文件的 `artifacts`。**产出物落项目的文档仓 `docs/`，不在本仓库。**
+目录约定（序号固定）见 [`projects/README.md`](./projects/README.md)。
+
+### 三、跑门禁
+
+每道门禁在进入下一阶段前执行。**不允许跳步**——上一道未通过时执行器会拒绝。
+
+```bash
+G=07_质量门禁/skills/ai-gate-runner/scripts/gate_run.py
+
+python3 $G --list-checks                                     # 检查项库与实现状态
+python3 $G --project <码> --batch <批次号> --gate gate-03     # 执行一道门禁
+python3 $G --project <码> --batch <批次号> --all              # 按顺序跑到第一个未通过
+python3 $G --project <码> --batch <批次号> --check            # 只校验，不回写状态（CI 用）
+
+# 结果待人工确认时，核对清单后签核：
+python3 $G --project <码> --batch <批次号> --gate gate-03 --confirm --by <真实人名>
+# 确实要带风险上线时，走豁免（必须给原因与复查日期）：
+python3 $G --project <码> --batch <批次号> --gate gate-03 --waive \
+        --by <真实人名> --reason "<具体原因>" --expires 2027-06-30
+```
+
+退出码：`0` 通过 ｜ `1` 未通过或待人工确认 ｜ `2` 执行器自身错误。
+
+**两道门禁不允许豁免**：`gate-02 原型确认` 与 `gate-06 归档交付`（它们的 `waivable: no`）。
+它们守着一个跳过就无法补救的东西——原型确认是需求理解的唯一验证点，归档是追溯链的最后一步。
+对它们执行 `--waive` 会被直接拒绝，而不是"记一笔就放行"。
+
+**三条语义不要记错**：
+
+- `skip` **不是** `pass`。缺校验材料时记 `skip` 并说明"要做什么才能自动校验"——把"没法校验"当成"校验通过"，是门禁最容易失效的方式
+- **BLOCK 级 `skip` 不能用 `--confirm` 越过**，只能 `--waive`。签核的前提是"有人核对过了"，材料不存在时无从核对
+- **执行器不替人拍板**。标注 `人` 的检查项只列清单；`--by` 必须填真实人名，它是"谁在什么时候确认的"的唯一凭据
+
+### 四、改规范
+
+**改了包条目或项目 manifest 之后必须重建快照**，否则规范没生效：
+
+```bash
+python3 $S --all                          # 重建全部项目的生效快照
+python3 00_工作空间配置/scripts/consistency_check.py   # 跨文件一致性检查
+```
+
+一致性检查查的是**单文件检查发现不了、拼起来才暴露的**那类问题：编号悬空引用、Skill 名引用、
+三件套完整性、上下文预算超标、门禁引用了未实现的检查项、文档状态描述与实际矛盾。
+**建议每次改完规范或 Skill 后跑一次**，不必等到月度。
+
+`ai-spec-build` 的 8 条校验（任一失败即中止，**不产出半成品快照**）：
 
 1. `PACK.md` 必填字段齐全，`files` 列出的文件都存在
 2. 条目前缀与所在包的 `prefix` 一致
@@ -138,6 +197,35 @@ python3 00_工作空间配置/skills/ai-spec-build/scripts/spec_build.py --proje
 6. **对 `frozen` 条目的 override / disable / append 一律拒绝**（append 也被拒——追加内容可以实质架空原条目）
 7. `disable` 必须带 `expires`；禁用基线或包条目还需 `approved_by`
 8. 同层冲突且未在 manifest 的 `domains` 中声明优先级 → 失败，不允许工具静默挑选
+
+### 五、日常维护
+
+| 频率 | 做什么 | 命令 / Skill |
+|---|---|---|
+| 改完规范或 Skill | 一致性检查 | `00_工作空间配置/scripts/consistency_check.py` |
+| 每月 | 项目特例提升为共享包条目 | `ai-spec-promote` |
+| 随时 | 小需求 / 工单 | `ai-daily-01-fastlane`（会写 `.ai/index/快车道台账.md`） |
+| 线上故障 | 热修与复盘 | `ai-daily-02-hotfix`（回写 `09_资产库/故障案例库/`） |
+| 每月 | 技术债识别与排期建议 | `ai-daily-03-techdebt`（读台账，输出到 `.ai/index/技术债清单.md`） |
+| 随时 | 查"这个字段为什么这么设计" | `ai-daily-04-qa`（只读知识库，**找不到就说找不到**） |
+
+`ai-daily-04-qa` 是这套知识库**唯一的使用反馈回路**：其他 Skill 都在写知识，只有它在读。
+它报"找不到"的地方，就是知识库下一步该补的地方。
+
+### 命令速查
+
+```bash
+S=00_工作空间配置/skills/ai-spec-build/scripts/spec_build.py
+G=07_质量门禁/skills/ai-gate-runner/scripts/gate_run.py
+C=00_工作空间配置/scripts/consistency_check.py
+
+python3 $S --list                      # 有哪些规范包
+python3 $S --project <码>               # 编译某项目的生效快照
+python3 $S --all                       # 编译全部
+python3 $G --list-checks               # 门禁检查项库
+python3 $G --project <码> --batch <批次号> --gate gate-03
+python3 $C                             # 跨文件一致性检查
+```
 
 ---
 
