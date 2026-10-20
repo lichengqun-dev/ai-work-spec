@@ -88,8 +88,14 @@
 
 ## 7. 当前状态
 
-本仓库处于 **P0 阶段**。已就位：目录骨架、00 配置、规范包骨架、项目 manifest、`ai-spec-build`、需求域 Skill、六道门禁定义。
+**36 个 Skill：34 个已实现、2 个为占位**（`ai-figma-axure-convert`、`ai-archive-01-close`——
+它们的 `SKILL.md` 中 `status: not_implemented`，前置条件会拒绝执行）。
 
-尚未就位：`02`–`06` 五域的 Skill（P1/P2）。**在对应域建好之前不要调用该域的 Skill**——它们的 `SKILL.md` 中前置条件为「未实现」，会拒绝执行。
+六道门禁定义与执行器（`ai-gate-runner`，25 个检查项）均已就位。
 
-规范包当前均为 `skeleton` / `partial` 状态，**不要指望它们现在就能约束代码质量**。填充顺序见 `../09_资产库/规范包/INDEX.md` 第 5 节。
+**规范包当前均为 `skeleton` / `partial`**，条目较薄，**不要指望它们现在就能约束代码质量**。
+两个领域包（`platform-base`、`info-security`）是空骨架，等对应负责人填充。
+填充顺序见 `../09_资产库/规范包/INDEX.md` 第 5 节。
+
+> 这一段是**易过期信息**，改完 Skill 或规范包状态后请一并更新——文档里写「未实现」而实际已实现，
+> 会让使用者按错误的假设做事（这些 Skill 的 `status` 字段才是权威）。

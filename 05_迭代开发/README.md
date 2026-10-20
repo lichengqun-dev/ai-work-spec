@@ -71,7 +71,7 @@ graph TD
 | 资产 | 位置 | 用途 |
 |---|---|---|
 | 变更管理规范 | `standards/变更管理规范.md` | 变更子批次与影响面优先（`STD-BASE-601/602`） |
-| **依赖关系图** | `.ai/index/依赖关系图.md` | 影响面分析的基础，**为空时 `ai-iteration-01` 拒绝执行** |
+| **依赖关系图** | `.ai/index/依赖关系图.md` | 影响面分析的基础，**为空时 `ai-iteration-01-impact` 拒绝执行** |
 | 功能编号总表 | `.ai/index/功能编号总表.md` | 已有 FN / 接口 / 表 |
 | 已归档批次产出物 | 项目文档仓 | 基线 |
 | 批次状态模板 | `.ai/state/_模板.yaml` | `type: change` 与 `parent_batch` |

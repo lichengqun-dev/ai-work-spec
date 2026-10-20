@@ -38,7 +38,8 @@
 复制 `.ai/state/_模板.yaml`，填写：
 
 - `batch` / `project` / `type` / `created` / `owner` / `current_step`
-- `spec_snapshot`：读 `.ai/spec-effective/<项目码>.json`，填入 `manifest_hash` 或快照哈希
+- `spec_snapshot.hash`：读 `.ai/spec-effective/<项目码>.json` 的 **`snapshot_hash`** 字段（不是 `manifest_hash`）。
+  `snapshot_hash` 是内容寻址的：改一条规范它就会变，调整版式它不会变。
 - `steps`：**按路径类型填不同的步骤集**——
   - `new`：init → analysis → prototype → prd
   - `resume`：保持原步骤集不变，只把 `current_step` 指向中断处

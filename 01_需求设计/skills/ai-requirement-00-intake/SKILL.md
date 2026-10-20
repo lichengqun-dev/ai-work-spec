@@ -21,7 +21,8 @@ status: implemented
 | 需求描述 | 用户提供 | 是 | 非空；若过于模糊（无法判断项目归属）则进入澄清流程 |
 | 项目码 | `projects/<项目码>/` | 是 | 目录存在，manifest 可解析 |
 | 已有批次状态 | `.ai/state/*.yaml` | 否 | 存在同项目活跃批次时进入续做判定 |
-| 生效规范快照 | `.ai/spec-effective/<项目码>.md` | 是 | 不存在则提示先运行 `ai-spec-build` |
+| 生效规范快照 | `.ai/spec-effective/<项目码>.json` | 是 | 不存在则提示先运行 `ai-spec-build`；
+  批次状态文件 `spec_snapshot.hash` 取其中的 `snapshot_hash` 字段 |
 
 ## 产出契约
 

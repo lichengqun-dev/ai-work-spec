@@ -491,6 +491,18 @@ def resolve_conflicts(by_id: dict, domain_priority: dict) -> list[dict]:
 
 # ── 输出 ────────────────────────────────────────────────────
 
+def compute_snapshot_hash(manifest_hash: str, entries: list) -> str:
+    """快照哈希 —— 内容寻址，不是文件字节哈希。
+
+    由「manifest 哈希 + 每条目的 id/层级/状态/正文哈希」算出，因此和输出格式无关：
+    调整段落版式不会让它变，改一条规范就会让它变。这正是「这个批次用的是哪版规范」需要的性质。
+    """
+    parts = [manifest_hash]
+    for e in sorted(entries, key=lambda x: (LAYER_RANK[x.layer], x.id)):
+        parts.append(f"{e.id}|{e.layer}|{e.status}|{e.tier}|{e.frozen}|{sha256_of(e.body)}")
+    return sha256_of("\n".join(parts))
+
+
 def build_snapshot_md(project: str, manifest: dict, packs, stacks, domains,
                       entries: list[Entry], overrides, conflicts, manifest_hash) -> str:
     active = [e for e in entries if e.status in ("active", "appended", "overridden")]
@@ -502,6 +514,7 @@ def build_snapshot_md(project: str, manifest: dict, packs, stacks, domains,
     out: list[str] = []
     out.append(f"# 生效规范快照 · {project}\n")
     out.append(f"> 生成时间：{now}　｜　manifest hash：{manifest_hash}")
+    out.append(f"> 快照哈希：{compute_snapshot_hash(manifest_hash, entries)}　（批次状态文件 `spec_snapshot.hash` 填这个值）")
     out.append("> **本文件由 ai-spec-build 生成，请勿手工编辑**——下次构建会覆盖。要改规范请改包或 manifest。\n")
 
     counts: dict[str, int] = {}
@@ -567,6 +580,7 @@ def build_snapshot_json(project, manifest, packs, stacks, domains, entries,
     doc = {
         "project": project,
         "manifest_hash": manifest_hash,
+        "snapshot_hash": compute_snapshot_hash(manifest_hash, entries),
         "built_at": datetime.now(timezone.utc).astimezone().isoformat(),
         "packs": ([{"dimension": "stack", "key": k, "pack": n, "version": v, "status": packs[n].status}
                    for k, n, v in stacks]
@@ -634,7 +648,7 @@ def build_one(root: Path, packs: dict, project: str, check_only: bool, verbose: 
             "at": datetime.now(timezone.utc).astimezone().isoformat(),
             "project": project, "entries": len(active),
             "manifest_hash": manifest_hash,
-            "snapshot_hash": sha256_of(js),
+            "snapshot_hash": compute_snapshot_hash(manifest_hash, entries),
             "overrides": len(overrides), "conflicts": len(conflicts),
         }
         logs = root / ".ai" / "logs" / "spec-build.jsonl"

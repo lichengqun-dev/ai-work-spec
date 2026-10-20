@@ -14,7 +14,8 @@ owner: <批次负责人>
 current_step: init         # 与 steps 中某个 name 对应
 
 # 生效规范快照的哈希：回答"这个批次开发时用的是哪版规范"
-# 值取自 .ai/logs/spec-build.jsonl 最近一次该项目的记录
+# 取 .ai/spec-effective/<项目码>.json 的 snapshot_hash 字段
+# （内容寻址：改一条规范它就变，调整版式它不变；与 .ai/logs/spec-build.jsonl 记录的值一致）
 spec_snapshot:
   path: .ai/spec-effective/<项目码>.md
   hash: <snapshot_hash>
