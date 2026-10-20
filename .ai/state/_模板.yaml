@@ -42,10 +42,21 @@ steps:
 
 gates:
   - id: gate-01
-    status: pending         # pending | passed | failed | waived
+    status: pending         # pending | passed | failed | waived | pending_manual
     at: null
     by: null                # auto | <人名>
     note: null
+    # 以下两段由 ai-gate-runner 写入，不手工维护
+    checks: []              # 每个 auto 检查项的结果：pass / fail / skip + 明细
+    manual_pending: []      # 标注「人」的检查项——执行器只列清单，不替你拍板
+
+# status 取值说明（由 ai-gate-runner 写入）：
+#   pending          尚未执行
+#   failed           有 BLOCK 项校验不通过，不可进入下一阶段
+#   pending_manual   自动校验无 BLOCK 失败，但存在「人」项或 skip 项，需人工签核
+#                    （用 --confirm --by <名字> 置为 passed）
+#   passed           已通过（可能含人工签核）
+#   waived           已豁免，必须同时在下方 waivers 中留痕
 
 artifacts: []
 # 示例：
