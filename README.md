@@ -168,15 +168,15 @@ ai-work-spec/
 
 ## Skill 清单
 
-共 **36 个**，其中 **9 个已实现**、**27 个为占位**（`status: not_implemented`，前置条件会拒绝执行）。
+共 **36 个**，其中 **21 个已实现**、**15 个为占位**（`status: not_implemented`，前置条件会拒绝执行）。
 
 | 域 | Skill | 状态 |
 |---|---|---|
 | 工作空间配置 | `ai-spec-build` 规范编译器 / `ai-spec-promote` 项目特例提升为共享包 | ✅ |
 | 需求设计 | `ai-requirement-00-intake` 批次入口判定 / `01-init` 初始化双仓库 / `02-analysis` 需求结构化 / `03-prototype` 原型产出 / `04-prd` 读原型生成 PRD / `autopilot` 编排全流程 | ✅ |
-| 需求设计 | `ai-figma-axure-convert` 设计稿转原型 | ⏳ P1 |
-| 概要详细设计 | `ai-design-01-arch` / `02-detail` / `03-db` / `04-api` / `05-frontend-spec` / `06-review` | ⏳ P1 |
-| 编码开发 | `ai-dev-01-scaffold` / `02-backend` / `03-frontend` / `04-unittest` / `05-codereview` / `06-docsync` | ⏳ P1 |
+| 需求设计 | `ai-figma-axure-convert` 设计稿转原型（需先有原型的真实产出作为格式基准） | ⏳ 待实现 |
+| 概要详细设计 | `ai-design-01-arch` 架构 / `02-detail` 详细设计 / `03-db` 数据库 / `04-api` 接口契约 / `05-frontend-spec` 前端设计 / `06-review` 设计评审 | ✅ |
+| 编码开发 | `ai-dev-01-scaffold` 骨架 / `02-backend` 后端 / `03-frontend` 前端 / `04-unittest` 单测 / `05-codereview` 代码评审 / `06-docsync` 文档回流 | ✅ |
 | 测试验证 | `ai-test-01-cases` / `02-automation` / `03-execute` / `04-regression` / `05-report` | ⏳ P2 |
 | 迭代开发 | `ai-iteration-01-impact` / `02-delta-spec` / `03-change-control` / `04-release` | ⏳ P2 |
 | 日常开发 | `ai-daily-01-fastlane` / `02-hotfix` / `03-techdebt` / `04-qa` | ⏳ P2 |
@@ -211,11 +211,13 @@ ai-work-spec/
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | **P0** | 地基 + 需求流水线：目录、00 配置、规范包骨架、项目 manifest、`ai-spec-build`、需求域 Skill、六道门禁定义与**执行器** | ✅ 已完成 |
-| **P1** | 设计 + 开发流水线：`02` `03` 两域 Skill、契约冻结、`ai-gate-runner` | ⏳ |
+| **P1** | 设计 + 开发流水线：`02` `03` 两域 Skill、契约冻结、`ai-gate-runner` | ✅ 已完成 |
 | **P2** | 测试 + 迭代 + 日常：`04` `05` `06` 三域 Skill | ⏳ |
 | **P3** | 资产沉淀与度量：领域模型、组件库、故障案例库、度量指标 | ⏳ |
 
 **各阶段必须串行。** P1 的契约冻结依赖 P0 的编号体系；P2 的影响面分析依赖 P1 产出的依赖关系图。并行推进必然返工。
+
+**当前进度：P0、P1 已完成，下一步是 P2**（`04` 测试验证 / `05` 迭代开发 / `06` 日常开发 三域 13 个 Skill）。
 
 当前基线内容：团队基线 **37 条** + 包内条目 **30 条**，共 67 条规范。规范包状态为 `skeleton` / `partial`——**不要指望它们现在就能约束代码质量**，条目要靠真实批次反推逐步填充。
 
