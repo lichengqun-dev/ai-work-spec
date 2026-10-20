@@ -58,14 +58,17 @@ python3 $S --project <码> --batch <批次号> --gate gate-03 --waive --by 张�
 
 执行器已实现，**24 个检查项全部有实现**（`--list-checks` 可核对），并已用夹具逐条验证拦截行为。
 
-其中 5 项固定返回 `skip`，因为它们本质上要在项目仓或依赖尚未实现的 Skill 下完成：
+其中 3 项固定返回 `skip`：
 
 | 检查项 | 为什么 skip |
 |---|---|
 | `lint-passthrough` | 静态检查需按项目自己的配置执行，不在执行器职责内 |
-| `unit-coverage-report` | 需项目侧生成覆盖率报告（`ai-dev-04-unittest`，P1） |
-| `testcase-executed` | 需测试报告（`ai-test-03/05`，P2） |
-| `p0p1-closed` | 需缺陷台账（`ai-test-03-execute`，P2） |
+| `unit-coverage-report` | 需项目侧生成覆盖率报告，格式因工具而异，无稳定约定 |
 | `secrets-externalized`（无项目仓时） | 需要项目仓路径 |
+
+**另有一组检查项的准确性取决于产出物的格式约定**——`testcase-executed`、`p0p1-closed`、
+`rollout-plan-present`、`regression-scoped` 解析测试报告、缺陷台账与交付类产出物。
+格式约定写在各 Skill 的产出契约里并标注了「不可改」；字段名一改，检查项只会报"无法解析"，
+于是"用例都跑完了吗""P0/P1 都关闭了吗"又回到了"靠人说"的状态。
 
 **这类 skip 是有意保留的**：执行器宁可明确说"我查不了，需要你做 X"，也不猜一个结论。

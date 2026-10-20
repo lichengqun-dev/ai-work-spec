@@ -701,14 +701,90 @@ def _c_fn_tc(ctx: Ctx):
 
 @check("testcase-executed", "用例执行率")
 def _c_tc_exec(ctx: Ctx):
-    return (SKIP, "用例执行结果需要测试报告产出（`ai-test-03-execute` / `ai-test-05-report`，"
-                  "当前为 P2 未实现）。测试完成后用 `--confirm` 签核本项。")
+    """解析测试报告的「用例执行率」字段。
+
+    字段名与两种写法由 `ai-test-05-report` 固定（`用例执行率：100%` 或表行 `| 用例执行率 | 100% |`）。
+    找不到字段时记 `skip` 而不是 `pass`——"没法校验"和"校验通过"是两件事。
+    """
+    if (s := _need_docs(ctx)):
+        return s
+    docs = ctx.artifact_texts()
+    if not docs:
+        return (SKIP, "无产出物可查。")
+    found_report = False
+    for rel, t in docs:
+        if "测试报告" not in rel and "用例执行率" not in t:
+            continue
+        m = (re.search(r"用例执行率[：:]\s*([\d.]+)\s*%", t)
+             or re.search(r"\|\s*用例执行率\s*\|\s*([\d.]+)\s*%\s*\|", t))
+        if not m:
+            continue
+        found_report = True
+        try:
+            rate = float(m.group(1))
+        except ValueError:
+            continue
+        if rate >= 99.995:
+            return (PASS, f"{rel}：用例执行率 {rate:g}%。")
+        missed = re.search(r"未执行[^|\n]*?(\d+)\s*条", t)
+        extra = f"，未执行 {missed.group(1)} 条" if missed else ""
+        return (FAIL, f"{rel}：用例执行率 {rate:g}%{extra}。"
+                      f"核心路径未跑完的情况下不应进入上线判断。")
+    if found_report:
+        return (FAIL, "测试报告存在但「用例执行率」取值无法解析，请按 "
+                      "`ai-test-05-report` 约定的两种写法之一填写。")
+    return (SKIP, "未找到测试报告（含「用例执行率」字段的产出物）。"
+                  "该字段由 `ai-test-05-report` 产出；报告未生成或字段名被改动时无法自动校验。")
 
 
 @check("p0p1-closed", "P0/P1 缺陷是否关闭")
 def _c_defects(ctx: Ctx):
-    return (SKIP, "缺陷收敛情况需要测试报告与缺陷台账（`ai-test-03-execute`，当前为 P2 未实现）。"
-                  "缺陷清零后用 `--confirm` 签核本项。")
+    """解析缺陷台账，检查 P0/P1 是否全部关闭。
+
+    表头与状态取值由 `ai-test-03-execute` 固定。表头不符时记 `skip` 并说明——
+    不猜测列含义，因为猜错会把"有未关闭的 P0"误报成通过。
+    """
+    if (s := _need_docs(ctx)):
+        return s
+    ledger = [(r, t) for r, t in ctx.artifact_texts()
+              if "缺陷台账" in r or "缺陷" in r and "| 编号 |" in t]
+    if not ledger:
+        return (SKIP, "未找到缺陷台账。该产出由 `ai-test-03-execute` 生成；"
+                      "未生成时无法判断缺陷是否收敛。")
+
+    CLOSED = ("已关闭", "关闭", "closed", "已验证", "已转待办", "已废弃")
+    for rel, t in ledger:
+        lines = [l for l in t.split("\n") if l.strip().startswith("|")]
+        header, rows = None, []
+        for line in lines:
+            cells = [c.strip() for c in line.strip("|").split("|")]
+            if set("".join(cells)) <= set("-: "):
+                continue
+            if header is None:
+                header = cells
+                continue
+            rows.append(cells)
+        if not header:
+            continue
+        if "级别" not in header or "状态" not in header:
+            return (SKIP, f"{rel}：表头缺少「级别」或「状态」列，无法解析。"
+                          f"表头格式见 `ai-test-03-execute` 的产出契约。")
+        lv_i, st_i = header.index("级别"), header.index("状态")
+        id_i = header.index("编号") if "编号" in header else 0
+        open_blocks = []
+        for cells in rows:
+            if max(lv_i, st_i, id_i) >= len(cells):
+                continue
+            level, status = cells[lv_i].upper(), cells[st_i]
+            if level not in ("P0", "P1"):
+                continue
+            if not any(c in status for c in CLOSED):
+                open_blocks.append(f"{cells[id_i]}（{level}，{status}）")
+        if open_blocks:
+            return (FAIL, f"{rel}：{len(open_blocks)} 个 P0/P1 未关闭——"
+                          + "、".join(open_blocks[:5]))
+        return (PASS, f"{rel}：未关闭的 P0/P1 缺陷为 0。")
+    return (SKIP, "缺陷台账中未解析到任何数据行，无法判断。")
 
 
 @check("regression-scoped", "回归范围是否圈定")
