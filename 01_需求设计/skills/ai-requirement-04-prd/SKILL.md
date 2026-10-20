@@ -1,5 +1,6 @@
 ---
 name: ai-requirement-04-prd
+description: 读取原型工程生成 PRD 与页面原型映射表。原型经业务方确认后使用。
 version: 2.5.0
 stage: 01_需求设计
 owner: 待指定

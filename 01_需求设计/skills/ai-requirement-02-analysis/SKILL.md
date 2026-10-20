@@ -1,5 +1,6 @@
 ---
 name: ai-requirement-02-analysis
+description: 把原始需求（会议记录、工单、口头描述）结构化为需求文档集，分配 REQ/FN 编号。用户提供原始需求材料并要求做需求分析时使用。
 version: 2.5.0
 stage: 01_需求设计
 owner: 待指定

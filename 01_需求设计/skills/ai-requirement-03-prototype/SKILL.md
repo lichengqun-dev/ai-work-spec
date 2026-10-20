@@ -1,5 +1,6 @@
 ---
 name: ai-requirement-03-prototype
+description: 产出可运行的原型工程，页面元素带 data-fn 标记。需要从需求画原型、让业务方确认界面时使用。
 version: 2.5.0
 stage: 01_需求设计
 owner: 待指定

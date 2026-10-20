@@ -1,5 +1,6 @@
 ---
 name: ai-test-03-execute
+description: 执行测试用例、登记缺陷台账并定级。测试执行时使用。
 version: 1.0.0
 stage: 04_测试验证
 owner: 待指定

@@ -1,5 +1,6 @@
 ---
 name: ai-design-01-arch
+description: 产出架构设计：模块划分、依赖方向、DEC 决策记录。PRD 完成后的设计第一步。
 version: 1.0.0
 stage: 02_概要详细设计
 owner: 待指定

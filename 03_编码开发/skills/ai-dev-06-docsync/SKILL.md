@@ -1,5 +1,6 @@
 ---
 name: ai-dev-06-docsync
+description: 把代码变更回流到设计文档，使文档与实现一致。代码改了但文档没跟时使用。
 version: 1.0.0
 stage: 03_编码开发
 owner: 待指定

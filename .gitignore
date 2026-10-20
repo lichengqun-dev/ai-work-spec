@@ -11,6 +11,13 @@ Thumbs.db
 __pycache__/
 *.pyc
 
+# Claude Code 的本地设置（各人不同，不入库）
+.claude/settings.local.json
+
+# 注意：.claude/skills/ **要入库**——它是 Skill 挂载层，
+# 由 00_工作空间配置/scripts/build_claude_skills.py 生成，
+# 决定 Claude 能不能发现并调用这 37 个 Skill。不要把它忽略掉。
+
 # 生成物与运行日志见 .ai/.gitignore
 #   快照 .ai/spec-effective/ 与日志 .ai/logs/*.jsonl 可由规范包 + manifest 完整重建，
 #   且带具体项目的组合结果，属实例数据而非可复用资产。

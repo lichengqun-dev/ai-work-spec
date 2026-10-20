@@ -1,5 +1,6 @@
 ---
 name: ai-dev-01-scaffold
+description: 产出工程骨架：模块划分、目录结构、构建配置（不写业务逻辑）。契约冻结后使用。
 version: 1.0.0
 stage: 03_编码开发
 owner: 待指定

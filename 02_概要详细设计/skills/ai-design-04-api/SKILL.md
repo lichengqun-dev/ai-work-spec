@@ -1,5 +1,6 @@
 ---
 name: ai-design-04-api
+description: 产出接口契约（OpenAPI，每 operation 带 x-fn-id 与错误码）。数据库设计之后使用；契约在 gate-03 通过后冻结。
 version: 1.0.0
 stage: 02_概要详细设计
 owner: 待指定

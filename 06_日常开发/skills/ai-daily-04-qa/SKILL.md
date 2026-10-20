@@ -1,5 +1,6 @@
 ---
 name: ai-daily-04-qa
+description: 基于知识库回答「这个字段为什么这么设计」「这条规则是谁定的」类问题。任何时候都可使用。
 version: 1.0.0
 stage: 06_日常开发
 owner: 待指定

@@ -36,17 +36,23 @@ AI 原生化研发知识库。承载 需求 → 设计 → 开发 → 测试 →
 
 ## Skill 路由
 
-| 场景 | Skill | 状态 |
-|---|---|---|
-| 新需求进来（未定新项目/迭代） | `ai-requirement-00-intake` | P0 |
-| 从零到一的新系统 | `ai-requirement-autopilot` | P0 |
-| 已有系统加功能 | `ai-iteration-01-impact` | P2 |
-| 小改动 / 工单 | `ai-daily-01-fastlane` | P2 |
-| 线上故障 | `ai-daily-02-hotfix` | P2 |
-| 项目规范变更 / 新项目接入 | `ai-spec-build` | P0 |
-| 项目特例要提升为共享规范 | `ai-spec-promote` | P0 |
+**首选：任何研发任务都交给总入口。** 描述你要做什么即可，它判定路径并驱动全流程：
 
-**调用未实现的 Skill 会失败。** 各域 README 中标注了每个 Skill 的交付阶段（P0/P1/P2），状态非 P0 的尚未实现。
+| 场景 | Skill |
+|---|---|
+| **任何研发任务（尤其是不确定走哪条路时）** | **`ai-flow-autopilot`** —— 说一句话即可 |
+| 新需求进来（未定新建/迭代） | `ai-requirement-00-intake` |
+| 从零到一的新系统（需求段编排） | `ai-requirement-autopilot` |
+| 已有系统加功能 | `ai-iteration-01-impact` |
+| 小改动 / 工单 | `ai-daily-01-fastlane` |
+| 线上故障 | `ai-daily-02-hotfix` |
+| 项目规范变更 / 新项目接入 | `ai-spec-build` |
+| 项目特例要提升为共享规范 | `ai-spec-promote` |
+| 只是问问题（不产生任何改动） | `ai-daily-04-qa` |
+
+**37 个 Skill 全部已实现**，以各自 `SKILL.md` 的 `status` 字段为准。
+它们已挂载到 `.claude/skills/` 下可被直接调用；改动任何 Skill 定义后须重跑
+`python3 00_工作空间配置/scripts/build_claude_skills.py` 重建挂载层。
 
 ## 规范加载顺序
 

@@ -1,5 +1,6 @@
 ---
 name: ai-spec-build
+description: 把多层规范（基线/技术栈包/领域包/项目层）编译成单一生效快照。当接入新项目、改了规范包或 manifest、或需要确认某个项目该遵守哪些规范时使用。
 version: 0.1.0
 stage: 00_工作空间配置
 owner: 知识库 Owner

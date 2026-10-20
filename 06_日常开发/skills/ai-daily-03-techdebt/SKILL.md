@@ -1,5 +1,6 @@
 ---
 name: ai-daily-03-techdebt
+description: 从快车道台账与故障复盘中识别技术债，输出带数据依据的排期建议。按月执行。
 version: 1.0.0
 stage: 06_日常开发
 owner: 待指定

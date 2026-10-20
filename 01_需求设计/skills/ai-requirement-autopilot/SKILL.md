@@ -1,5 +1,6 @@
 ---
 name: ai-requirement-autopilot
+description: 编排需求段全流程（00-intake → 01-init → gate-01 → 02-analysis → 03-prototype → gate-02 → 04-prd）。用户说「走一遍需求流程」时使用。
 version: 1.0.0
 stage: 01_需求设计
 owner: 待指定

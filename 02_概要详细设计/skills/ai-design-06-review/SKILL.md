@@ -1,5 +1,6 @@
 ---
 name: ai-design-06-review
+description: 执行 gate-03 设计评审，并在通过后冻结接口契约。设计段收尾时使用。
 version: 1.0.0
 stage: 02_概要详细设计
 owner: 待指定

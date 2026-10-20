@@ -1,5 +1,6 @@
 ---
 name: ai-figma-axure-convert
+description: 把 Figma / Axure 设计稿转成与 ai-requirement-03-prototype 同构的原型并补齐 data-fn 标记。用户提供设计稿时使用。
 version: 1.0.0
 stage: 01_需求设计
 owner: 待指定

@@ -1,5 +1,6 @@
 ---
 name: ai-dev-02-backend
+description: 按 FN 逐个实现后端功能，提交信息带 FN 编号。工程骨架就位后使用。
 version: 1.0.0
 stage: 03_编码开发
 owner: 待指定

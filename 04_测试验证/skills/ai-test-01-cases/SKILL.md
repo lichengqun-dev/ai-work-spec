@@ -1,5 +1,6 @@
 ---
 name: ai-test-01-cases
+description: 从 PRD + 接口契约 + 功能详细设计三者生成测试用例，编号挂载到 FN。进入测试阶段时使用。
 version: 1.0.0
 stage: 04_测试验证
 owner: 待指定

@@ -1,5 +1,6 @@
 ---
 name: ai-daily-01-fastlane
+description: 小需求快车道：量化判定准入 → 精简实现 → 登记台账。小改动、工单、文案调整时使用。
 version: 1.0.0
 stage: 06_日常开发
 owner: 待指定

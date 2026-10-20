@@ -1,5 +1,6 @@
 ---
 name: ai-design-05-frontend-spec
+description: 产出前端设计：页面清单、组件拆分、状态归属、接口调用映射。接口契约之后使用。
 version: 1.0.0
 stage: 02_概要详细设计
 owner: 待指定

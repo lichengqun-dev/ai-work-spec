@@ -1,5 +1,6 @@
 ---
 name: ai-requirement-01-init
+description: 初始化项目文档双仓库骨架与批次上下文。批次创建后的第一步使用。
 version: 2.5.0
 stage: 01_需求设计
 owner: 待指定

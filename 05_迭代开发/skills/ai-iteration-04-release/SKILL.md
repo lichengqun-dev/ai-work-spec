@@ -1,5 +1,6 @@
 ---
 name: ai-iteration-04-release
+description: 产出上线步骤（含回滚方案）与发布说明，并对齐版本号。准备上线时使用。
 version: 1.0.0
 stage: 05_迭代开发
 owner: 待指定

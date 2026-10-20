@@ -63,11 +63,26 @@ def find_root(start: Path) -> Path:
 
 def md_files(root: Path, include_proposals: bool = False):
     for f in sorted(root.rglob("*.md")):
-        if ".git" in f.parts or f.relative_to(root).as_posix().startswith("projects/"):
+        rel = f.relative_to(root).as_posix()
+        if ".git" in f.parts or rel.startswith("projects/") or rel.startswith(".claude/"):
             continue
         if not include_proposals and is_proposal(f, root):
             continue
         yield f
+
+
+def skill_md_files(root: Path):
+    """知识库里的真实 SKILL.md。
+
+    **排除 `.claude/skills/`** —— 那是生成的挂载层（只有 name+description），
+    由 check_mount_layer 单独校验它与真实定义是否同步。
+    不排除的话，挂载层会因为「缺 version/stage/owner」被误报成 37×5 处问题。
+    """
+    for p in sorted(root.rglob("SKILL.md")):
+        parts = p.relative_to(root).parts
+        if parts[0] in (".git", ".claude", "projects"):
+            continue
+        yield p
 
 
 def is_separator(line: str) -> bool:
@@ -140,7 +155,7 @@ def check_skill_refs(root: Path):
 
 def check_skills(root: Path):
     problems = []
-    paths = sorted(root.rglob("SKILL.md"))
+    paths = list(skill_md_files(root))
     for p in paths:
         d = p.parent
         try:
@@ -153,7 +168,8 @@ def check_skills(root: Path):
             problems.append({"kind": "frontmatter",
                              "detail": f"name={meta.get('name')} 与目录名 {d.name} 不一致",
                              "where": str(p.relative_to(root))})
-        for k in ("version", "stage", "owner", "updated", "status"):
+        # description 是 Claude skill 自动发现的前提：缺了它，这个 Skill 不会被任何会话看到
+        for k in ("description", "version", "stage", "owner", "updated", "status"):
             if k not in meta:
                 problems.append({"kind": "frontmatter",
                                  "detail": f"frontmatter 缺 `{k}`",
@@ -182,7 +198,8 @@ def check_budget(root: Path):
     for f in root.rglob("*"):
         if not f.is_file() or f.name not in ("CLAUDE.md", "SKILL.md", "prompt.md"):
             continue
-        if ".git" in f.parts:
+        parts = f.relative_to(root).parts
+        if parts[0] in (".git", ".claude", "projects"):
             continue
         limit = next(v for (n, _), v in BUDGET.items() if n == f.name)
         lines = len(f.read_text(encoding="utf-8").split("\n"))
@@ -213,7 +230,7 @@ def check_gates(root: Path):
 def check_status_claims(root: Path):
     """文档写「未实现」而 frontmatter 已 implemented（或反之）——演练发现的 C-05 属于这一类。"""
     problems = []
-    for p in sorted(root.rglob("SKILL.md")):
+    for p in skill_md_files(root):
         try:
             meta = yaml.safe_load(p.read_text(encoding="utf-8").split("---")[1])
         except Exception:
@@ -238,6 +255,45 @@ def check_status_claims(root: Path):
     return problems
 
 
+def check_mount_layer(root: Path):
+    """`.claude/skills/` 是给 skill 发现机制看的挂载层，由脚本生成。
+
+    它必须与真实定义同步：description 是 Claude 决定「什么时候用哪个 skill」的依据，
+    挂载层里的 description 过期，等于让模型按错误的触发条件选 Skill。
+    """
+    mount = root / ".claude" / "skills"
+    problems = []
+    names = set()
+    for p in skill_md_files(root):
+        try:
+            meta = yaml.safe_load(p.read_text(encoding="utf-8").split("---")[1]) or {}
+        except Exception:
+            continue
+        name, desc = meta.get("name"), meta.get("description")
+        if not name:
+            continue
+        names.add(name)
+        target = mount / name / "SKILL.md"
+        if not target.is_file():
+            problems.append({"kind": "mount",
+                             "detail": f"`{name}` 缺少 .claude/skills/ 挂载（不会被 skill 发现机制看到）",
+                             "where": str(p.relative_to(root))})
+            continue
+        mt = target.read_text(encoding="utf-8")
+        m = re.search(r"^description: (.+)$", mt, re.M)
+        if not m or m.group(1).strip() != str(desc).strip():
+            problems.append({"kind": "mount",
+                             "detail": f"`{name}` 挂载层的 description 与真实定义不一致",
+                             "where": str(target.relative_to(root))})
+    if mount.is_dir():
+        for d in sorted(mount.iterdir()):
+            if d.is_dir() and d.name not in names:
+                problems.append({"kind": "mount",
+                                 "detail": f"挂载层存在 `{d.name}`，但知识库里已无此 Skill",
+                                 "where": str(d.relative_to(root))})
+    return problems
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="知识库一致性检查")
     ap.add_argument("--json", action="store_true")
@@ -253,7 +309,8 @@ def main() -> int:
     p4 = check_budget(root)
     p5, n_gate_checks = check_gates(root)
     p6 = check_status_claims(root)
-    all_problems = p1 + p2 + p3 + p4 + p5 + p6
+    p7 = check_mount_layer(root)
+    all_problems = p1 + p2 + p3 + p4 + p5 + p6 + p7
 
     if args.json:
         print(json.dumps({"problems": all_problems,
@@ -271,6 +328,7 @@ def main() -> int:
         "budget": "上下文预算超标",
         "gate": "门禁检查项",
         "status-claim": "状态描述与实现矛盾",
+        "mount": "Skill 挂载层不同步",
     }
     print(f"\n知识库一致性检查")
     print(f"  STD 条目 {n_def} 个（被引用 {n_ref} 个）｜ Skill {n_skill} 个 ｜ "

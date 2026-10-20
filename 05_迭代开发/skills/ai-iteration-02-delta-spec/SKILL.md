@@ -1,5 +1,6 @@
 ---
 name: ai-iteration-02-delta-spec
+description: 产出增量设计——只写差异，不重写文档。影响面分析判定为「中」时使用。
 version: 1.0.0
 stage: 05_迭代开发
 owner: 待指定

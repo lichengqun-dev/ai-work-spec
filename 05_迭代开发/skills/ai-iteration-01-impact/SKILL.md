@@ -1,5 +1,6 @@
 ---
 name: ai-iteration-01-impact
+description: 分析变更影响面并判定影响等级（小/中/大），决定后续走哪条路径。已有系统接到新需求时使用。
 version: 1.0.0
 stage: 05_迭代开发
 owner: 待指定

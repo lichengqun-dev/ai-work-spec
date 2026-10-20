@@ -1,5 +1,6 @@
 ---
 name: ai-requirement-00-intake
+description: 判定一个新需求走新建/续做/变更哪条路径，并创建批次状态文件。当有新需求进来、不确定该走哪条流程时使用。
 version: 1.0.0
 stage: 01_需求设计
 owner: 待指定

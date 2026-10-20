@@ -1,5 +1,6 @@
 ---
 name: ai-dev-04-unittest
+description: 为已实现的功能生成单元测试并补齐未覆盖分支。实现完成后使用。
 version: 1.0.0
 stage: 03_编码开发
 owner: 待指定

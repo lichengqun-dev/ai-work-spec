@@ -1,5 +1,6 @@
 ---
 name: ai-dev-05-codereview
+description: 执行 gate-04 代码评审。编码段收尾时使用。
 version: 1.0.0
 stage: 03_编码开发
 owner: 待指定

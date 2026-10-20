@@ -1,5 +1,6 @@
 ---
 name: ai-test-02-automation
+description: 从冻结的接口契约生成接口自动化测试脚本。测试用例完成后使用。
 version: 1.0.0
 stage: 04_测试验证
 owner: 待指定

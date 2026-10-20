@@ -1,5 +1,6 @@
 ---
 name: ai-design-02-detail
+description: 把 PRD 的每个功能点展开成详细设计（时序/状态流转/异常分支/边界），每 FN 一节。架构设计之后使用。
 version: 1.0.0
 stage: 02_概要详细设计
 owner: 待指定

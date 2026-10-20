@@ -1,5 +1,6 @@
 ---
 name: ai-design-03-db
+description: 产出数据库设计：DDL、字段注释、索引说明、回滚脚本。功能详细设计之后使用。
 version: 1.0.0
 stage: 02_概要详细设计
 owner: 待指定

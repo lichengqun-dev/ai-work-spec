@@ -1,5 +1,6 @@
 ---
 name: ai-test-05-report
+description: 汇总执行结果与缺陷，产出测试报告与上线建议。测试收尾时使用。
 version: 1.0.0
 stage: 04_测试验证
 owner: 待指定

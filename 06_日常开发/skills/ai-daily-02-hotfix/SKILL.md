@@ -1,5 +1,6 @@
 ---
 name: ai-daily-02-hotfix
+description: 线上问题定位与热修，强制先写复现用例。线上故障时使用。
 version: 1.0.0
 stage: 06_日常开发
 owner: 待指定

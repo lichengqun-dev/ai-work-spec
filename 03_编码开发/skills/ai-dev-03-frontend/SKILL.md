@@ -1,5 +1,6 @@
 ---
 name: ai-dev-03-frontend
+description: 从原型工程迁移实现前端页面，并对接冻结的接口契约。工程骨架就位后使用。
 version: 1.0.0
 stage: 03_编码开发
 owner: 待指定

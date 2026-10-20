@@ -1,5 +1,6 @@
 ---
 name: ai-test-04-regression
+description: 从代码变更出发，沿依赖关系图圈定回归范围。改动后需要确定测哪些时使用。
 version: 1.0.0
 stage: 04_测试验证
 owner: 待指定

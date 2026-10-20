@@ -1,5 +1,6 @@
 ---
 name: ai-iteration-03-change-control
+description: 登记变更、与原基线对比、开变更子批次。增量设计完成后使用。
 version: 1.0.0
 stage: 05_迭代开发
 owner: 待指定

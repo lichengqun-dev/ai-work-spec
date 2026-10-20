@@ -1,5 +1,6 @@
 ---
 name: ai-archive-01-close
+description: 批次结项：跑 gate-06、执行断链检测、回填功能编号总表、生成结项报告、终态化状态文件。批次收尾时使用。
 version: 1.0.0
 stage: 08_归档交付
 owner: 待指定

@@ -100,9 +100,46 @@ REQ（需求条目）→ FN（功能点）→ PAGE / API / TBL（原型页 / 接
 
 ## 如何使用
 
-**前置要求**：Python 3.8+ 与 PyYAML（`pip install pyyaml`）。以下命令都在仓库根目录执行。
+### 一句话驱动（推荐）
+
+**你不需要记命令。** 37 个 Skill 已挂载到 `.claude/skills/`，用一句话就能驱动整条流程：
+
+> 给列表页加个导出
+
+`ai-flow-autopilot` 会判定该走哪条路径、驱动全流程、在每个阶段自动跑质量门禁；
+**需要人判断的地方会停下来问你**（门禁的人工项、需求取舍、契约冻结、验收签字）。
+
+| 你说什么 | 会发生什么 |
+|---|---|
+| 「给列表页加个导出」 | 判定新建 / 迭代 → 驱动设计 → 编码 → 测试，每阶段跑门禁 |
+| 「线上导出偶发超时」 | 走热修流程（强制先写复现用例，24 小时内补测试） |
+| 「改个按钮文案」 | 走快车道（四项量化准入）→ 登记快车道台账 |
+| 「这个字段为什么这么设计」 | 只读查询知识库，**不建批次** |
+| 「继续」 | 从批次状态文件的断点续做，不重跑已完成的步骤 |
+
+它**不会替你做的四件事**：判定路径有歧义时问你、门禁的人工项留给你、签核要你给名字、豁免要你给原因和复查期。
+这不是能力不足，是**责任必须有人承担**。
+
+下面几节是**它背后在做什么**——出问题要排查、或想手动控制某一步时看。
+
+### 挂载层是怎么来的
+
+`.claude/skills/<name>/SKILL.md` 是**生成的指针**，真实定义仍在各域的 `skills/<name>/` 下：
+
+```bash
+python3 00_工作空间配置/scripts/build_claude_skills.py          # 生成 / 更新
+python3 00_工作空间配置/scripts/build_claude_skills.py --check   # 校验是否与真实定义同步
+```
+
+改完任何 Skill 的 `SKILL.md` 或 `prompt.md` 后重跑一次——**`description` 是 Claude 决定"什么时候用哪个 skill"的依据**，
+挂载层过期会让模型按错误的触发条件选 Skill。一致性检查会验证两者同步。
+
+> 挂载层是生成的而不是手写的，理由很直接：手写会产生 37 份需要同步的副本，而副本一定会分叉。
+> `--check` 模式让"是否同步"变成可机械验证的事。
 
 ### 一、接入一个新项目（一次性，目标 ≤ 30 分钟）
+
+**前置要求**：Python 3.8+ 与 PyYAML（`pip install pyyaml`）。以下命令都在仓库根目录执行。
 
 ```bash
 git clone https://github.com/lichengqun-dev/ai-work-spec.git
@@ -233,6 +270,7 @@ python3 $C                             # 跨文件一致性检查
 
 ```
 ai-work-spec/
+├── .claude/skills/            Skill 挂载层（生成，让 37 个 Skill 可被发现与调用）
 ├── CLAUDE.md                  全局上下文：技术栈基线、全局禁止、Skill 路由
 ├── README.md
 ├── 00_工作空间配置/            地基：规范 AI 怎么工作、怎么编号、怎么加载上下文
@@ -256,11 +294,11 @@ ai-work-spec/
 
 ## Skill 清单
 
-共 **36 个，全部已实现**。
+共 **37 个，全部已实现**（36 个阶段/工具 Skill + 1 个全流程编排入口）。
 
 | 域 | Skill | 状态 |
 |---|---|---|
-| 工作空间配置 | `ai-spec-build` 规范编译器 / `ai-spec-promote` 项目特例提升为共享包 | ✅ |
+| 工作空间配置 | **`ai-flow-autopilot` 全流程入口（说一句话就能驱动）** / `ai-spec-build` 规范编译器 / `ai-spec-promote` 项目特例提升为共享包 | ✅ |
 | 需求设计 | `ai-requirement-00-intake` 批次入口判定 / `01-init` 初始化双仓库 / `02-analysis` 需求结构化 / `03-prototype` 原型产出 / `04-prd` 读原型生成 PRD / `autopilot` 编排全流程 | ✅ |
 | 需求设计 | `ai-figma-axure-convert` 设计稿转原型（产出须与 `ai-requirement-03-prototype` 同构） | ✅ |
 | 概要详细设计 | `ai-design-01-arch` 架构 / `02-detail` 详细设计 / `03-db` 数据库 / `04-api` 接口契约 / `05-frontend-spec` 前端设计 / `06-review` 设计评审 | ✅ |

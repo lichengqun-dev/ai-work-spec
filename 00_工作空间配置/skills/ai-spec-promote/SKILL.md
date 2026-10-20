@@ -1,5 +1,6 @@
 ---
 name: ai-spec-promote
+description: 从各项目的特有条目中发现共性，输出提升为共享包条目的候选清单。按月执行，或某个项目的 project_only 超过 30 条时使用。
 version: 0.1.0
 stage: 00_工作空间配置
 owner: 知识库 Owner
