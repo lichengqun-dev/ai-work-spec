@@ -1,0 +1,302 @@
+batch: V-IPD-20261020-001
+project: V-IPD
+type: new
+created: 2026-10-20 17:23:39+08:00
+owner: AI研发
+demand: 点检任务
+current_step: arch
+judgement:
+  by: ai-requirement-00-intake
+  at: 2026-10-20 17:23:39+08:00
+  type: new
+  reason: "两条独立规则都指向「新建」：\n1. `projects/V-IPD/.agent/state/` 下没有 V-IPD 的任何已归档批次 —— 该项目尚无基线，需走完整流程。\n   这是\
+    \ V-IPD 接入知识库后的第一个批次。\n2. 本次是「增加一个原来不存在的能力」（点检任务：新任务类型 + 自动/手动生成 +\n   反馈回写 + 页签挂载 + 100% 自动关闭），不是\"\
+    修改已有功能的逻辑、规则或计算方式\"。\n注意与直觉的差异：虽然这是**已上线系统**的功能增强（口语上会说\"迭代\"），\n但路径判定看的是**知识库有没有该项目的基线**，不是系统本身新旧。\n\
+    没有基线 → 走完整 23 步，把这个批次本身变成第一个基线。\n本次含少量「修改已有行为」的成分（FN-TASK-020 按钮替换、FN-TASK-021/022 字段精简），\n但它们不是主体，且都发生在本批次直接改动的代码路径上，不需要单独开变更子批次。\n"
+spec_snapshot:
+  path: projects/V-IPD/.agent/spec-effective/V-IPD.md
+  hash: sha256:1c13687ed76dc38b
+  built_at: 2026-10-21 12:05:00+08:00
+  note: '2026-10-21 刷新（本日第四次）。本次是**内容级变更，不是版式变更**：
+    项目根散文文档整体换成了团队维护的真实版本（新增 java后端开发规范 / 前端开发规范 /
+    测试方案-核心链路 / 测试环境与账号管理 V1.0 / 新人第一次用AI做全栈-注意事项，
+    后端开发规范.md 与 环境与账号.md 已不存在）。按新散文重新提炼后，项目级条目
+    8 → 29 条（新增 6 个提炼文件），生效条目 67 → 88 条（常驻 36 → 50，A 段 104/120 行）。
+    **其中一条与旧条目方向相反**：旧 STD-PRJ-V-IPD-002 写「逻辑删除 1=未删 / 2=已删」，
+    真实文档是「一期 deleted_ 取 N/Y；二期 is_delete/is_deleted **1=正常，0/2=删除**」——已按真文档改正。
+    另：本批次产出物（PRD 与原型）是需求与交互层面的，不受上述编码/库表类约束影响，无需重校；
+    但**设计段（arch）开工前应重读新快照**——新增的 29 条正是设计要遵守的约束。
+    刷新前哈希 sha256:89616c3848b04593。'
+contract_freeze:
+  path: null
+  hash: null
+  frozen_at: null
+  frozen_by: null
+steps:
+- name: init
+  skill: ai-requirement-01-init
+  version: 2.5.0
+  status: done
+  started: 2026-10-20 17:23:39+08:00
+  finished: 2026-10-20 17:40:00+08:00
+  note: '文档仓骨架已建（00_批次 ~ 05_交付 + 迭代）；L3 批次上下文已生成 （projects/V-IPD/CLAUDE.md，55 行）。原型工程仓跳过——原型由需求方外部提供。 '
+- name: analysis
+  skill: ai-requirement-02-analysis
+  version: 2.5.0
+  status: done
+  started: 2026-10-20 17:40:00+08:00
+  finished: 2026-10-20 18:05:00+08:00
+  note: '产出 10 条 REQ（REQ-TASK-001 ~ 010）+ 24 条 FN（FN-TASK-001 ~ 024）， 模块码 TASK（任务能力，公共基座 pp-common-root）。编号已登记到功能编号总表，
+    无孤儿编号。新增 5 条 PRD 未覆盖的待澄清问题（Q-07 ~ Q-11），合计 11 条。 '
+- name: prototype
+  skill: ai-requirement-03-prototype
+  version: 2.5.0
+  status: done
+  started: 2026-10-20 18:10:00+08:00
+  finished: 2026-10-20 18:45:00+08:00
+  note: '产出 4 个页面（PAGE-TASK-001 ~ 004），覆盖全部 24 个 FN；原型为单文件自包含 HTML， 路径 projects/V-IPD/prototype/V-IPD-20261020-001/index.html，data-fn
+    标记 24/24 无遗漏。 标准路径的「先匹配已有组件」一步**被替代**：09_资产库/组件库/前端组件清单.md 是空骨架， 改为直接读前端代码提取真实约定（主题色 #2167D9、任务状态灯号枚举、详情页信息栏结构）。
+    FN-TASK-001/002/003/004/005/017 为后端行为、无界面，按 Skill 要求记明而非硬造页面。 '
+- name: prd
+  skill: ai-requirement-04-prd
+  status: done
+  started: 2026-10-21T09:35:00+08:00
+  finished: 2026-10-21T10:05:00+08:00
+  note: '依原型逐 FN 生成 PRD（24 节）+ 页面原型映射表；11 条待确认事项原样带入。
+    交叉校验：原型 data-fn 24/24 与 PRD 章节一一对应，无多余标记。
+    '
+- name: arch
+  skill: ai-design-01-arch
+  status: pending
+- name: detail
+  skill: ai-design-02-detail
+  status: pending
+- name: db
+  skill: ai-design-03-db
+  status: pending
+- name: api
+  skill: ai-design-04-api
+  status: pending
+- name: frontend-spec
+  skill: ai-design-05-frontend-spec
+  status: pending
+- name: design-review
+  skill: ai-design-06-review
+  status: pending
+- name: scaffold
+  skill: ai-dev-01-scaffold
+  status: pending
+- name: backend
+  skill: ai-dev-02-backend
+  status: pending
+- name: frontend
+  skill: ai-dev-03-frontend
+  status: pending
+- name: unittest
+  skill: ai-dev-04-unittest
+  status: pending
+- name: codereview
+  skill: ai-dev-05-codereview
+  status: pending
+- name: docsync
+  skill: ai-dev-06-docsync
+  status: pending
+- name: cases
+  skill: ai-test-01-cases
+  status: pending
+- name: automation
+  skill: ai-test-02-automation
+  status: pending
+- name: test-execute
+  skill: ai-test-03-execute
+  status: pending
+- name: regression
+  skill: ai-test-04-regression
+  status: pending
+- name: test-report
+  skill: ai-test-05-report
+  status: pending
+- name: release
+  skill: ai-iteration-04-release
+  status: pending
+- name: archive
+  skill: ai-archive-01-close
+  status: pending
+gates:
+- id: gate-01
+  status: passed
+  at: '2026-10-20T17:35:27+08:00'
+  by: LCQ
+  note: 人工签核通过
+  checks:
+  - 'no': 3
+    id: req-acceptance-quantified
+    text: 验收标准可量化（符合 STD-BASE-204）
+    level: WARN
+    result: skip
+    detail: 批次状态文件的 `artifacts` 为空，无产出物可校验。请先让上游 Skill 登记产出物。
+  manual_pending:
+  - 业务目标明确：能回答「为什么做这个」
+  - 干系人已确认：需求提出方与验收方已明确
+  - 需求边界清晰：明确不做什么
+  - 与已有需求是否重复
+  - 涉及数据模型或对外契约的变更
+  block_skip: []
+  external_pending: []
+  external_evidence: null
+- id: gate-02
+  status: passed
+  at: '2026-10-21T09:31:20+08:00'
+  by: LCQ
+  note: 人工签核通过（签核附注：业务方（毛欢）已确认原型；交互主流程与异常态由 LCQ 逐屏核对）
+  checks:
+  - 'no': 1
+    id: fn-coverage-prototype
+    text: 原型覆盖全部 FN 编号
+    level: BLOCK
+    result: pass
+    detail: 范围内 24 个 FN 均在原型中有标记。
+  - 'no': 2
+    id: data-fn-markers
+    text: 原型中存在 `data-fn` 标记且可统计
+    level: BLOCK
+    result: pass
+    detail: 检到 40 处合法 `data-fn` 标记。
+  manual_pending:
+  - 交互主流程可完整走通
+  - 异常态与空态有呈现（无数据、无权限、加载失败）
+  - 业务方已确认原型
+  - 原型使用的组件是否与目标技术栈包一致
+  block_skip: []
+  external_pending: []
+  external_evidence: 业务方（毛欢）已确认原型；交互主流程与异常态由 LCQ 逐屏核对
+- id: gate-03
+  status: pending
+- id: gate-04
+  status: pending
+- id: gate-05
+  status: pending
+- id: gate-06
+  status: pending
+artifacts:
+- path: 点检任务/01_需求/原始需求格式化.md
+  hash: sha256:5c51ff4497ede7ea
+  produced_by: ai-requirement-02-analysis@2.5.0
+  note: 10 条 REQ，五要素齐全
+- path: 点检任务/01_需求/需求功能分析.md
+  hash: sha256:1a24b1012ae36cb8
+  produced_by: ai-requirement-02-analysis@2.5.0
+  note: 24 条 FN，含异常流程与场景归类
+- path: 点检任务/01_需求/需求问题汇总.md
+  hash: sha256:c48b00c56f67882a
+  produced_by: ai-requirement-02-analysis@2.5.0
+  note: 11 条待澄清问题
+- path: 点检任务/01_需求/原型规划.md
+  hash: sha256:7191bcad594059b8
+  produced_by: ai-requirement-03-prototype@2.5.0
+  note: 4 个 PAGE，含从代码取到的真实视觉约定
+- path: 点检任务/01_需求/PRD.md
+  hash: sha256:1060c2f75b198383
+  produced_by: ai-requirement-04-prd@2.5.0
+  note: 依原型逐 FN 生成
+- path: 点检任务/01_需求/页面原型映射表.md
+  hash: sha256:d0e21bc63a22ac1d
+  produced_by: ai-requirement-04-prd@2.5.0
+  note: PAGE ↔ FN ↔ PRD 章节三方对照
+- path: 点检任务/01_需求/原型与功能映射.md
+  hash: sha256:fe172937835b4f01
+  produced_by: ai-requirement-03-prototype@2.5.0
+  note: PAGE→FN 对照 + 逐字段核对
+pending_questions:
+- id: Q-01
+  question: 短周期任务不生成点检任务的判定阈值定为什么？（PRD §4.1.2 建议「计划完成 − 计划开始 > 生成间隔」）
+  affects:
+  - REQ-TASK-001
+  - FN-TASK-004
+  blocking: design
+  need_answer_from: 需求方（毛欢）
+  raised_at: 2026-10-20 18:00:00+08:00
+- id: Q-02
+  question: 生成间隔 / 完成偏移的作用层级 —— 系统级全局，还是项目级可覆盖？
+  affects:
+  - REQ-TASK-001
+  - FN-TASK-003
+  blocking: design
+  need_answer_from: 需求方（毛欢）+ 架构
+  raised_at: 2026-10-20 18:00:00+08:00
+- id: Q-03
+  question: 原始任务计划时间变更后，已生成的点检任务是否追溯调整？
+  affects:
+  - REQ-TASK-001
+  - FN-TASK-005
+  blocking: design
+  need_answer_from: 需求方（毛欢）
+  raised_at: 2026-10-20 18:00:00+08:00
+- id: Q-04
+  question: 原始任务「点检人」字段的维护入口在哪？（前端已隐藏，但权限与创建人取值仍依赖它）
+  affects:
+  - FN-TASK-002
+  - FN-TASK-006
+  - FN-TASK-021
+  blocking: implement
+  need_answer_from: 需求方 + 开发
+  raised_at: 2026-10-20 18:00:00+08:00
+- id: Q-05
+  question: 定时任务的执行频率与失败补偿机制？
+  affects:
+  - FN-TASK-001
+  - FN-TASK-005
+  blocking: implement
+  need_answer_from: 开发（徐江雷）
+  raised_at: 2026-10-20 18:00:00+08:00
+- id: Q-06
+  question: 点检任务的标题命名规则？（PRD §11 建议「点检：<原始任务标题>」，最终以原型为准）
+  affects:
+  - FN-TASK-002
+  - FN-TASK-015
+  blocking: implement
+  need_answer_from: 需求方（以原型为准）
+  raised_at: 2026-10-20 18:00:00+08:00
+- id: Q-07
+  question: 实际完成时间早于实际开始时间是否拦截？（PRD 校验规则汇总 V-01~V-09 未覆盖）
+  affects:
+  - FN-TASK-009
+  blocking: implement
+  need_answer_from: 需求方 / 开发
+  raised_at: 2026-10-20 18:00:00+08:00
+  source: 需求分析新增
+- id: Q-08
+  question: 点检任务置为「已完成」后可否再次反馈？
+  affects:
+  - FN-TASK-010
+  - FN-TASK-011
+  blocking: defer
+  need_answer_from: 需求方
+  raised_at: 2026-10-20 18:00:00+08:00
+  source: 需求分析新增
+- id: Q-09
+  question: 是否所有原始任务类型都走同一个详情页？（影响「硬编码新增页签」方案的可行性）
+  affects:
+  - FN-TASK-014
+  blocking: defer
+  need_answer_from: 开发（徐江雷）+ 需求方
+  raised_at: 2026-10-20 18:00:00+08:00
+  source: 需求分析新增
+- id: Q-10
+  question: 系统是否已存在同名或语义重叠的任务类型（如"检查任务""巡检任务"）？
+  affects:
+  - FN-TASK-018
+  blocking: defer
+  need_answer_from: 开发
+  raised_at: 2026-10-20 18:00:00+08:00
+  source: 需求分析新增
+- id: Q-11
+  question: 原「修改点检时间」按钮的后端接口是否有其他调用方？
+  affects:
+  - FN-TASK-020
+  blocking: defer
+  need_answer_from: 开发
+  raised_at: 2026-10-20 18:00:00+08:00
+  source: 需求分析新增
+waivers: []
+archived: false
