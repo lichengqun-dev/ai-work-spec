@@ -40,13 +40,6 @@ EXAMPLE_MARKERS = ("示例", "例：", "例如", "参考形态", "占位", "待�
 # 反例与提议只影响「Skill 名引用」的检查口径（那里确实有大量故意举的错名）
 SKILL_REF_MARKERS = EXAMPLE_MARKERS + ("反例", "反模式", "别扭", "建议", "会得到")
 
-# 提案类文档：设计文档与演练记录通篇是假设的编号与假想的反例，不参与引用检查。
-# 它们记录的是「可以长什么样」与「曾经是什么样」，不是当前事实。
-PROPOSAL_DOCS = ("docs/",)
-
-
-def is_proposal(f: Path, root: Path) -> bool:
-    return f.relative_to(root).as_posix().startswith(PROPOSAL_DOCS)
 STD_RE = re.compile(r"STD-[A-Z0-9]+-\d{3}")
 SKILL_RE = re.compile(r"`(ai-[a-z0-9-]+)`")
 SKILL_DIR_RE = re.compile(r"^(gate-\d{2})-")
@@ -62,12 +55,20 @@ def find_root(start: Path) -> Path:
     raise SystemExit("未找到仓库根目录")
 
 
-def md_files(root: Path, include_proposals: bool = False):
+def md_files(root: Path):
+    """知识库里参与检查的 Markdown。
+
+    **排除 `projects/` 与 `.claude/`**：前者是项目层（项目码、模块码、表名本来就该是
+    项目特有的，不适用共享层的引用规则），后者是生成的挂载层。
+
+    曾经还排除过一个 `docs/`（命题文档）——设计文档与演练记录通篇是假设的编号与假想的反例。
+    那个目录已被删掉（设计理由并入了根 `README.md`，演练记录删除），
+    所以这条豁免没有了。**副作用要知道**：README 现在参与引用检查，
+    往里面写示例编号时不能再用不存在的编号。
+    """
     for f in sorted(root.rglob("*.md")):
         rel = f.relative_to(root).as_posix()
         if ".git" in f.parts or rel.startswith("projects/") or rel.startswith(".claude/"):
-            continue
-        if not include_proposals and is_proposal(f, root):
             continue
         yield f
 
@@ -489,10 +490,20 @@ def check_counts(root: Path):
         (re.compile(r"包内条目\s*\*{0,2}(\d+)\s*条"), pack, "包内条目数"),
     ]
 
+    # 全库口径的声明里，`N` 是个**总数**；而这些词一出现，`N` 就变成了**局部计数**。
+    # 例：「测试验证一个阶段就对应 5 个 Skill」——5 说的是一个阶段的 Skill 数，
+    # 拿它和全库总数 40 比会得到一条误报，而误报比漏报更快地杀死一个检查器。
+    #
+    # 刻意收得很窄（只列真正表示"局部"的词），宁可漏掉一条真问题：
+    # 这条检查的目的是抓"总数写错了"，不是穷举所有写错的句式。
+    LOCAL_SCOPE = ("对应", "本域", "该域", "这个域", "其中", "每个")
+
     def _applies(pat, line: str) -> bool:
         """`共 N 个` 这条只在同句提到 Skill 时才适用，否则它匹配的是任意「共 N 个 X」。"""
         if pat.pattern.startswith("共"):
             return "Skill" in line
+        if "个 Skill" in pat.pattern and any(w in line for w in LOCAL_SCOPE):
+            return False
         return True
 
     # 只有"全局性文档"里的数字才是全库口径。域 README 写「本域 7 个 Skill」是对的，
@@ -527,7 +538,7 @@ def check_markdown_structure(root: Path):
     会作为正文原样显示。没有这层检查，它就只能靠人翻文件时偶然发现。
     """
     problems = []
-    for f in md_files(root, include_proposals=True):
+    for f in md_files(root):
         lines = f.read_text(encoding="utf-8").split("\n")
         mask = fenced_mask(lines)
         for i, line in enumerate(lines):
@@ -746,7 +757,7 @@ def main() -> int:
           f"门禁检查项 {n_gate_checks} 个\n")
     if not all_problems:
         print("  ✅ 未发现跨文件不一致")
-        print("     （覆盖上表各类；不含 docs/ 提案文档、不含条目正文的语义矛盾）\n")
+        print("     （覆盖上表各类；不含条目正文的语义矛盾）\n")
         return 0
     for kind, label in groups.items():
         items = [x for x in all_problems if x["kind"] == kind]
