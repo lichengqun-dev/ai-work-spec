@@ -23,7 +23,7 @@ status: implemented
 | 功能详细设计 | `ai-design-02-detail` 产出 | 是 | 每 FN 一节 |
 | 数据库设计 | `ai-design-03-db` 产出 | 是 | 含 DDL 与回滚 |
 | 工程骨架说明 | `ai-dev-01-scaffold` 产出 | 是 | 模块与目录的对应关系 |
-| 生效规范快照 | `.ai/spec-effective/<项目码>.md` | 是 | **技术细节的唯一来源** |
+| 生效规范快照 | `projects/<项目码>/.agent/spec-effective/<项目码>.md` | 是 | **技术细节的唯一来源** |
 
 ## 产出契约
 

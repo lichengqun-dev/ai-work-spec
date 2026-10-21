@@ -4,9 +4,9 @@
 |---|---|
 | **格式基准** | `01_需求设计/skills/ai-requirement-03-prototype/SKILL.md` 的产出契约——**动手前必读** |
 | 功能编号规则 | `00_工作空间配置/命名与编号规范.md` |
-| 功能编号总表 | `.ai/index/功能编号总表.md`（`PAGE` 编号在这里登记） |
-| 需求功能分析 | 项目文档仓 `docs/01_需求/需求功能分析.md`——补 `data-fn` 的依据 |
-| 前端技术栈 | `.ai/spec-effective/<项目码>.md` |
+| 功能编号总表 | `projects/<项目码>/.agent/index/功能编号总表.md`（`PAGE` 编号在这里登记） |
+| 需求功能分析 | 项目文档仓 `<需求名>/01_需求/需求功能分析.md`——补 `data-fn` 的依据 |
+| 前端技术栈 | `projects/<项目码>/.agent/spec-effective/<项目码>.md` |
 
 ## 为什么这里没有独立知识文件
 

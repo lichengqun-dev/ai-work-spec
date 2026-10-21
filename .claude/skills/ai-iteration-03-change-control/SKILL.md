@@ -22,7 +22,7 @@ description: 登记变更、与原基线对比、开变更子批次。增量设�
    不要"先跑跑看"
 2. 读 `05_迭代开发/skills/ai-iteration-03-change-control/prompt.md`，**按它执行**。它是这个 Skill 的指令本体
 3. `references/` 默认只加载 `INDEX.md`，按它的「何时读取」列按需读取，单次不超过 3 个文件
-4. 产出物按 `SKILL.md` 的产出契约落位，并登记到批次状态文件 `.ai/state/<批次号>.yaml` 的 `artifacts`
+4. 产出物按 `SKILL.md` 的产出契约落位，并登记到批次状态文件 `projects/<项目码>/.agent/state/<批次号>.yaml` 的 `artifacts`
 
 ## 为什么要经过这一层
 

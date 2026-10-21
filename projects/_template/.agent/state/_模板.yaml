@@ -1,10 +1,24 @@
 # 批次状态文件模板
 #
-# 复制到 .ai/state/<批次号>.yaml
+# 复制到 projects/<项目码>/.agent/state/<批次号>.yaml
 # 批次号格式：<项目码大写>-<YYYYMMDD>-<三位序号>，如 PROJ-20261019-001
 #
 # 本文件是**断点续做能力的载体**：接手一个批次时先读它，
 # 不需要读任何文档就知道卡在哪一步、上一步产出了什么、有什么没解决的问题。
+#
+# ⚠️ **本文件是机器所有的：注释活不过第一次门禁回写。**
+#
+# `ai-gate-runner` 每次执行都用 PyYAML 重新序列化整个文件（`yaml.safe_dump`），
+# 于是你在这里写的注释、空行、字段顺序**在第一次跑门禁后全部消失**。
+#
+# 后果与对策：
+#   · 本模板的注释是给**你填的时候**看的，填完就完成使命了——不必惋惜
+#   · 但**任何需要长期留存的信息必须写成字段**（如 `judgement`、`note`、`reason`），
+#     写成注释等于没写。真实案例：首批评次把「路径判定理由」写成文件末尾的注释块，
+#     跑一次 gate-01 后整段消失，而那是判断"为什么这个批次是新建而不是迭代"的唯一记录。
+#   · 时间戳也会被重写成 PyYAML 的格式（`2026-10-20 17:23:39+08:00`，T 变空格），属正常现象
+#
+# 所以：**新增字段可以，新增注释只当临时草稿。**
 
 batch: <批次号>
 project: <项目码>
@@ -13,12 +27,24 @@ created: <ISO8601 带时区>
 owner: <批次负责人>
 current_step: init         # **必须**是下方 steps 中某个 name，取值域固定（见文件末尾）
 
+# ── 批次路径判定 ──────────────────────────────────────────
+# 由 ai-requirement-00-intake 写入（它创建本文件，所以不是 steps 里的一个 step）。
+# **这一段是必须的**：它回答「为什么这个批次走新建而不是迭代」——判错了要么跳过该走的环节，
+# 要么让小事走重流程。**不要写成注释**（见文件头的警告），注释活不过第一次门禁回写。
+# reason 写判定依据，不是结论复述：「因为是新功能」不合格；
+# 「状态目录下无已归档批次 → 该项目在本知识库尚无基线 → 需走完整流程」合格。
+judgement:
+  by: <判定者：写 Skill 名，如 ai-requirement-00-intake>
+  at: <ISO8601 带时区>
+  type: new                # new | resume | change，须与上方 type 一致
+  reason: <判定依据，可多行>
+
 # ── 生效规范快照 ──────────────────────────────────────────
 # 回答"这个批次开发时用的是哪版规范"
-# 取 .ai/spec-effective/<项目码>.json 的 snapshot_hash 字段
-# （内容寻址：改一条规范它就变，调整版式它不变；与 .ai/logs/spec-build.jsonl 记录的值一致）
+# 取 projects/<项目码>/.agent/spec-effective/<项目码>.json 的 snapshot_hash 字段
+# （内容寻址：改一条规范它就变，调整版式它不变；与 projects/<项目码>/.agent/logs/spec-build.jsonl 记录的值一致）
 spec_snapshot:
-  path: .ai/spec-effective/<项目码>.md
+  path: projects/<项目码>/.agent/spec-effective/<项目码>.md
   hash: <snapshot_hash>
   built_at: <ISO8601>
 
@@ -26,7 +52,7 @@ spec_snapshot:
 # gate-03 通过后由 ai-design-06-review 写入。冻结后任何变更走变更子批次。
 # 「契约冻结」此前只写在文档里、状态文件里没有对应字段，于是"这批用的是哪版契约"无从回答。
 contract_freeze:
-  path: docs/02_设计/接口契约.yaml
+  path: <需求名>/02_设计/接口契约.yaml
   hash: <sha256>           # 冻结那一刻的契约哈希
   frozen_at: <ISO8601>
   frozen_by: <人名>
@@ -37,16 +63,24 @@ contract_freeze:
 # 删掉会让「这一步没做过」变成不可见，而"没做的部分"恰恰是接手的人最需要知道的。
 #
 # 三条路径的步骤集：
-#   新建（new）     = 全部 23 步
+#   新建（new）     = 全部 23 步（下表完整列出）
 #   迭代（change）  = arch(增量) → detail(增量) → api(增量) → backend/frontend → unittest
 #                     → codereview → cases → automation → test-execute → regression
 #                     → test-report → release → archive   （其余标 skipped）
-#   快车道         = 不经本文件（走 .ai/index/快车道台账.md）
+#   快车道         = 不经本文件（走 projects/<项目码>/.agent/index/快车道台账.md）
+#
+# 门禁不在 steps 里，它们卡在阶段边界上，位置如下：
+#   gate-01 在 init 之后 · gate-02 在 prototype 之后 · gate-03 在 design-review 之后
+#   gate-04 在 docsync 之后 · **gate-05 在 release 之后**（它要校验 release 产出的上线方案）
+#   gate-06 在 archive 时
+#
+# `version` 取自对应 Skill 的 frontmatter。只有 step 1 写了示例，其余按需补。
 steps:
-  # ── 需求段 ──
+  # ── 需求段（init 之前还有 ai-requirement-00-intake 的路径判定，
+  #            它创建本文件，所以不列为 step）──
   - name: init
     skill: ai-requirement-01-init
-    version: 1.0.0
+    version: 2.5.0
     status: pending         # pending | in_progress | done | skipped | failed
     started: null
     finished: null
@@ -127,10 +161,15 @@ gates:
     at: null
     by: null                # auto | <人名>
     note: null
-    # 以下两段由 ai-gate-runner 写入，不手工维护
-    checks: []              # 每个 auto 检查项的结果：pass / fail / skip + 明细
+    # 以下四段由 ai-gate-runner 写入，不手工维护
+    checks: []              # 每个 auto 检查项的结果：pass / fail / skip / external + 明细
     manual_pending: []      # 标注「人」的检查项——执行器只列清单，不替你拍板
-    block_skip: []          # BLOCK 级 skip 的检查项 ID：它们不能用 --confirm 越过，只能 --waive
+    block_skip: []          # **缺校验材料**而 skip 的 BLOCK 项 ID
+                            #   —— 有内容时签核会被拒绝（签核的前提是「有人核对过了」，
+                            #      材料不存在时无从核对）。只能补齐材料后重跑，或走 --waive
+    external_pending: []    # **不在执行器职责内**的检查项 ID（如静态检查、覆盖率报告）
+                            #   —— 它们**可以签核**，但签核时**必须**用 --evidence 说明证据在哪
+    external_evidence: null # 签核时提交的证据说明。为 null 而 external_pending 非空 ⇒ 签核会被拒
   - id: gate-02
     status: pending
   - id: gate-03
@@ -145,7 +184,7 @@ gates:
 artifacts: []
 # 示例：
 # artifacts:
-#   - path: docs/01_需求/需求功能分析.md      # 相对 docs_repo（见 projects/<项目码>/project.yaml）
+#   - path: <需求名>/01_需求/需求功能分析.md      # 相对 docs_repo（见 projects/<项目码>/.agent/project.yaml）
 #     hash: sha256:ab12...
 #     fn_ids: [FN-CORE-045, FN-CORE-046]
 #     produced_by: ai-requirement-02-analysis@2.5.0
@@ -168,7 +207,8 @@ waivers: []
 #     reason: 客户要求当日上线，契约变更待补
 #     approved_by: 李四
 #     at: 2026-10-19T18:00:00+08:00
-#     review_at: 2026-10-26        # 7 天后自动提醒
+#     review_at: 2026-10-26        # 复查日期，须晚于今天且在 90 天内（执行器会校验）
+#                                  # ⚠️ 到期自动提醒尚未实现——复查看排期，靠人
 
 archived: false            # 归档后置 true，文件转为只读
 

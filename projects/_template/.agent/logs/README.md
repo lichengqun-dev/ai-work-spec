@@ -5,7 +5,7 @@
 | 文件 | 内容 |
 |---|---|
 | `spec-build.jsonl` | `ai-spec-build` 每次构建追加一行 |
-| `<批次号>.jsonl` | 批次内各 Skill 的执行记录（P1 起） |
+| `<批次号>.jsonl` | 批次内各 Skill 的执行记录 |
 
 ## 为什么只记元数据
 
@@ -18,5 +18,5 @@
 
 JSON Lines，每行一个 JSON 对象。字段见各 Skill 的产出契约。
 
-`.ai/logs/` 可以清理（保留最近 N 个月），但 `.ai/state/` 下已归档批次的状态文件**不可删除**——
+`projects/<项目码>/.agent/logs/` 可以清理（保留最近 N 个月），但 `projects/<项目码>/.agent/state/` 下已归档批次的状态文件**不可删除**——
 追溯链依赖它。

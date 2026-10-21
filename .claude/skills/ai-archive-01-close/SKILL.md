@@ -22,7 +22,7 @@ description: 批次结项：跑 gate-06、执行断链检测、回填功能编�
    不要"先跑跑看"
 2. 读 `08_归档交付/skills/ai-archive-01-close/prompt.md`，**按它执行**。它是这个 Skill 的指令本体
 3. `references/` 默认只加载 `INDEX.md`，按它的「何时读取」列按需读取，单次不超过 3 个文件
-4. 产出物按 `SKILL.md` 的产出契约落位，并登记到批次状态文件 `.ai/state/<批次号>.yaml` 的 `artifacts`
+4. 产出物按 `SKILL.md` 的产出契约落位，并登记到批次状态文件 `projects/<项目码>/.agent/state/<批次号>.yaml` 的 `artifacts`
 
 ## 为什么要经过这一层
 

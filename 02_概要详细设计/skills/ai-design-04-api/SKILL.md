@@ -22,14 +22,14 @@ status: implemented
 | 功能详细设计 | `ai-design-02-detail` 产出 | 是 | 每 FN 一节 |
 | 数据库设计 | `ai-design-03-db` 产出 | 是 | 字段类型须与契约一致 |
 | 需求功能分析 | `ai-requirement-02-analysis` 产出 | 是 | 用于申请 `API` 编号 |
-| 生效规范快照 | `.ai/spec-effective/<项目码>.md` | 是 | 接口设计规范（`STD-BASE-32x`）从这里读 |
+| 生效规范快照 | `projects/<项目码>/.agent/spec-effective/<项目码>.md` | 是 | 接口设计规范（`STD-BASE-32x`）从这里读 |
 
 ## 产出契约
 
 | 产出 | 路径 | 格式 |
 |---|---|---|
-| 接口契约 | 项目文档仓 `docs/02_设计/接口契约.yaml` | OpenAPI 3，**每个 operation 带 `x-fn-id` 与 4xx/5xx 响应** |
-| 接口登记 | `.ai/index/功能编号总表.md` 接口段 | `API-<模块码>-<3位>` + 所属 FN + 契约版本 |
+| 接口契约 | 项目文档仓 `<需求名>/02_设计/接口契约.yaml` | OpenAPI 3，**每个 operation 带 `x-fn-id` 与 4xx/5xx 响应** |
+| 接口登记 | `projects/<项目码>/.agent/index/功能编号总表.md` 接口段 | `API-<模块码>-<3位>` + 所属 FN + 契约版本 |
 
 ## 前置条件（不满足则拒绝执行）
 

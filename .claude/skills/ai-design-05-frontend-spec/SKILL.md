@@ -22,7 +22,7 @@ description: 产出前端设计：页面清单、组件拆分、状态归属、�
    不要"先跑跑看"
 2. 读 `02_概要详细设计/skills/ai-design-05-frontend-spec/prompt.md`，**按它执行**。它是这个 Skill 的指令本体
 3. `references/` 默认只加载 `INDEX.md`，按它的「何时读取」列按需读取，单次不超过 3 个文件
-4. 产出物按 `SKILL.md` 的产出契约落位，并登记到批次状态文件 `.ai/state/<批次号>.yaml` 的 `artifacts`
+4. 产出物按 `SKILL.md` 的产出契约落位，并登记到批次状态文件 `projects/<项目码>/.agent/state/<批次号>.yaml` 的 `artifacts`
 
 ## 为什么要经过这一层
 

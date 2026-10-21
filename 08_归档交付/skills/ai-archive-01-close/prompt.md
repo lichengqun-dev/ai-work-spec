@@ -6,10 +6,7 @@
 
 ## 先跑门禁，不手工判断
 
-```bash
-S=07_质量门禁/skills/ai-gate-runner/scripts/gate_run.py
-python3 $S --project <项目码> --batch <批次号> --gate gate-06
-```
+**调用 `ai-gate-runner` 执行 gate-06**——说"跑 gate-06"即可。
 
 自动检查项交给执行器；**人工项原样列出，不替人判断**；结果 `failed` 就停下。
 
@@ -86,7 +83,7 @@ python3 $S --project <项目码> --batch <批次号> --gate gate-06
 
 ## 完成后
 
-1. 结项报告写入 `docs/05_交付/结项报告.md`
+1. 结项报告写入 `<需求名>/05_交付/结项报告.md`
 2. 总表回填完毕
 3. 状态文件 `archived: true`
 4. 输出摘要
@@ -115,7 +112,7 @@ python3 $S --project <项目码> --batch <批次号> --gate gate-06
   孤儿编号            0
 
 总表回填：覆盖用例 12 条、提交 1 条（1 条未校验）
-结项报告：docs/05_交付/结项报告.md
+结项报告：<需求名>/05_交付/结项报告.md
 状态：archived: true（2026-10-20T14:30）
 
 待办：运行 ai-spec-promote 分析本批次的项目特有条目（2 条）

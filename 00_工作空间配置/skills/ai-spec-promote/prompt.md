@@ -12,8 +12,11 @@
 
 两类来源，都要看：
 
-1. `projects/*/project.yaml` 的 `project_only` 列表
-2. `projects/*/项目特有规范.md` 里的条目
+1. `projects/*/.agent/project.yaml` 的 `project_only` 列表
+2. `projects/*/.agent/rules/*.md` 里的条目（由散文提炼而来）
+
+**不要扫项目根的散文文档。** 那里面的约束还没被摘成条目，措辞自由、边界模糊，
+拿它聚类只会得到似是而非的结论。要提也是先让 `ai-spec-extract` 摘成条目再提。
 
 跳过 `_template` 目录。
 
@@ -49,7 +52,7 @@
 
 ## 淘汰候选的判断
 
-从 `.ai/spec-effective/*.json` 统计：每条包内条目被多少个项目的生效快照包含（即"被引用"）。
+从 `projects/<项目码>/.agent/spec-effective/*.json` 统计：每条包内条目被多少个项目的生效快照包含（即"被引用"）。
 
 | 情况 | 处置 |
 |---|---|
@@ -61,7 +64,7 @@
 
 ## 输出格式
 
-写入 `.ai/index/规范提升候选.md`：
+写入 `projects/<项目码>/.agent/index/规范提升候选.md`：
 
 ```markdown
 # 规范提升候选
@@ -85,12 +88,12 @@
 |---|---|
 ```
 
-以及 `.ai/index/规范淘汰候选.md`：
+以及 `projects/<项目码>/.agent/index/规范淘汰候选.md`：
 
 ```markdown
 # 规范淘汰候选
 
-生成时间：<时间>　｜　统计来源：.ai/spec-effective/*.json
+生成时间：<时间>　｜　统计来源：projects/<项目码>/.agent/spec-effective/*.json
 
 ## 零引用（候选淘汰）
 

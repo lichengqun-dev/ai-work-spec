@@ -23,7 +23,7 @@ status: implemented
 | 后端 / 前端代码 | `ai-dev-02-backend` / `03-frontend` 产出 | 是 | 按 FN 提交 |
 | 功能详细设计 | `ai-design-02-detail` 产出 | 是 | 每 FN 一节，含异常分支与边界 |
 | 单元测试规范 | `03_编码开发/standards/单元测试规范.md` | 是 | 命名与覆盖要求 |
-| 生效规范快照 | `.ai/spec-effective/<项目码>.md` | 是 | 测试框架与断言风格从这里读 |
+| 生效规范快照 | `projects/<项目码>/.agent/spec-effective/<项目码>.md` | 是 | 测试框架与断言风格从这里读 |
 
 ## 产出契约
 

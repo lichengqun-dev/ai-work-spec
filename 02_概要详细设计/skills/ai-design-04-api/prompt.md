@@ -50,7 +50,7 @@ paths:
 检查项 `openapi-valid`（BLOCK）：`openapi` 版本字段、`info.title`、`paths` 齐全；
 路径以 `/` 开头；每个 operation 有 `responses`。
 
-完整规范校验建议在 CI 中追加：`npx @redocly/cli lint docs/02_设计/接口契约.yaml`
+完整规范校验建议在 CI 中追加：`npx @redocly/cli lint <需求名>/02_设计/接口契约.yaml`
 
 ## 字段类型必须与数据库设计一致
 
@@ -76,7 +76,7 @@ paths:
 ## 完成后
 
 1. 回写批次状态文件：本步骤置 `done`，登记契约文件与哈希
-2. 在 `.ai/index/功能编号总表.md` 的接口段登记：`API` 编号、路径、所属 FN、契约版本
+2. 在 `projects/<项目码>/.agent/index/功能编号总表.md` 的接口段登记：`API` 编号、路径、所属 FN、契约版本
 
 ## 你绝对不要做的事
 

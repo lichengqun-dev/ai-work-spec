@@ -20,36 +20,37 @@ status: implemented
 
 | 输入 | 来源 | 必需 | 校验规则 |
 |---|---|---|---|
-| 项目 manifest | `projects/<项目码>/project.yaml` | 是 | `project` 字段须与目录名一致 |
-| 项目特有条目 | `projects/<项目码>/项目特有规范.md` | 否 | 条目前缀须为 `STD-PRJ-<项目码大写>-` |
+| 项目 manifest | `projects/<项目码>/.agent/project.yaml` | 是 | `project` 字段须与目录名一致 |
+| 项目级条目（提炼） | `projects/<项目码>/.agent/rules/*.md` | 否 | 条目前缀须为 `STD-PRJ-<项目码大写>-`；frontmatter 的 `source_hash` 与源文档比对 |
+| 项目级条目（内联） | manifest 的 `project_only` | 否 | 同上 |
 | 规范包 | `09_资产库/规范包/{stacks,domains}/*/PACK.md` | 是 | frontmatter 必填字段齐全 |
 | 团队基线 | `<业务域>/standards/**/*.md` | 否 | 条目前缀须为 `STD-BASE-` |
+
+> **项目根的散文文档不是本 Skill 的输入。** 它们由 `ai-spec-extract` 摘成条目后才进快照——
+> 本 Skill **不理解散文**，也不会去猜哪句话是约束。
 
 ## 产出契约
 
 | 产出 | 路径 | 格式 |
 |---|---|---|
-| 生效规范快照（人读） | `.ai/spec-effective/<项目码>.md` | Markdown，分 A/B/C/D 四段 |
-| 生效规范快照（机读） | `.ai/spec-effective/<项目码>.json` | JSON，含逐条来源链 |
-| 执行日志 | `.ai/logs/spec-build.jsonl` | 追加一行 JSON |
+| 生效规范快照（人读） | `projects/<项目码>/.agent/spec-effective/<项目码>.md` | Markdown，分 A/B/C/D 四段 |
+| 生效规范快照（机读） | `projects/<项目码>/.agent/spec-effective/<项目码>.json` | JSON，含逐条来源链 |
+| 执行日志 | `projects/<项目码>/.agent/logs/spec-build.jsonl` | 追加一行 JSON |
 
 ## 执行方式
 
-```bash
-# 编译单个项目
-python3 00_工作空间配置/skills/ai-spec-build/scripts/spec_build.py --project <项目码>
+调用本 Skill 时说明要做什么即可：
 
-# 编译全部项目
-python3 00_工作空间配置/skills/ai-spec-build/scripts/spec_build.py --all
+| 你要做什么 | 本 Skill 的行为 |
+|---|---|
+| 接入新项目 / 改了规范包或 manifest | **编译**该项目的快照，并做全部校验 |
+| 一次重建所有项目 | **编译全部** |
+| 只想知道有没有问题，不写文件（CI 用） | **只校验** |
+| 想知道有哪些包可选、包里各有多少条 | **列出包与版本** |
 
-# 只校验不写文件（CI 用）
-python3 00_工作空间配置/skills/ai-spec-build/scripts/spec_build.py --all --check
-
-# 列出全部包与版本
-python3 00_工作空间配置/skills/ai-spec-build/scripts/spec_build.py --list
-```
-
-依赖：Python 3.8+ 与 PyYAML（`pip install pyyaml`）。
+实现是一个脚本（本 Skill 目录下的 `scripts/spec_build.py`），参数说明见脚本 docstring——
+**使用者不需要记参数。** 依赖 Python 3.8+ 与 PyYAML；缺 PyYAML 时本 Skill **拒绝执行并说明**，
+不会退化成"编译失败就当通过"。
 
 ## 前置条件（不满足则拒绝执行）
 
@@ -70,7 +71,9 @@ python3 00_工作空间配置/skills/ai-spec-build/scripts/spec_build.py --list
 
 ## 边界（明确不做）
 
-- **不修改任何规范内容。** 只读包与 manifest，只写 `.ai/spec-effective/` 与 `.ai/logs/`
+- **不修改任何规范内容。** 只读包与 manifest 与 rules，只写 `projects/<项目码>/.agent/spec-effective/` 与 `projects/<项目码>/.agent/logs/`
+- **不从散文文档里提取条目。** 那是 `ai-spec-extract` 的事。本 Skill 只认已经带编号的条目
+- **不因漂移而失败。** 源文档变了就报「已变更」，但快照照常产出（改文档是常态）
 - 不自动升级包版本。包升级必须由人改 manifest
 - 不自动"修复"冲突。冲突一律以失败告终，裁决由人做
 - 不检查条目正文的语义矛盾（无法机械判定），只处理显式声明的 `conflicts_with`
@@ -81,8 +84,10 @@ python3 00_工作空间配置/skills/ai-spec-build/scripts/spec_build.py --list
 | 失败情形 | 处理 |
 |---|---|
 | 校验失败 | 打印具体条目 ID、来源文件、失败原因，退出码 1，不写文件 |
+| **源文档已变更（漂移）** | **不失败**。告警同时写进 stderr 与**快照正文顶部**，并在 JSON 的 `rules_drift` 里列出。处理是调用 `ai-spec-extract` 重新提炼 |
+| 项目根有看似条目头却不会被解析的行 | 告警列出具体文件与行号，**不失败**。提示改用 `ai-spec-extract` |
 | A 段超过 120 行预算 | 打印警告但**不失败**（提示有非硬约束条目被打成了 resident） |
-| 项目特有条目超过 30 条 | 在快照 D 段标注警告，建议运行 `ai-spec-promote` |
+| 项目级条目超过 30 条 | 在快照 D 段标注警告，建议运行 `ai-spec-promote` |
 | 仓库根目录定位失败 | 退出码 2，提示用 `--repo` 显式指定 |
 
 ## 何时必须调用

@@ -21,34 +21,37 @@ status: implemented
 | 输入 | 来源 | 必需 | 校验规则 |
 |---|---|---|---|
 | 门禁定义 | `07_质量门禁/gates/gate-*.md` | 是 | 元信息含 `stage`/`blocking`/`auto_check`/`waivable`；检查项表格可解析 |
-| 批次状态文件 | `.ai/state/<批次号>.yaml` | 是 | 含 `steps` 与 `artifacts`；`current_step` 必须在 `steps` 中 |
-| 项目 manifest | `projects/<项目码>/project.yaml` | 是 | `repo` 字段指向项目文档仓或代码仓（未填则相关检查项记 skip） |
-| 功能编号总表 | `.ai/index/功能编号总表.md` | 是 | 断链与覆盖率检查依赖它 |
+| 批次状态文件 | `projects/<项目码>/.agent/state/<批次号>.yaml` | 是 | 含 `steps` 与 `artifacts`；`current_step` 必须在 `steps` 中 |
+| 项目 manifest | `projects/<项目码>/.agent/project.yaml` | 是 | `repo` 字段指向项目文档仓或代码仓（未填则相关检查项记 skip） |
+| 功能编号总表 | `projects/<项目码>/.agent/index/功能编号总表.md` | 是 | 断链与覆盖率检查依赖它 |
 | 上一道门禁状态 | 同一批次状态文件 | 是 | 必须为 `passed` / `waived`，否则拒绝执行 |
 
 ## 产出契约
 
 | 产出 | 路径 | 格式 |
 |---|---|---|
-| 门禁结果 | 批次状态文件 `gates[]` | status / at / by / note / checks / manual_pending |
+| 门禁结果 | 批次状态文件 `gates[]` | status / at / by / note / checks / manual_pending / block_skip / external_pending / external_evidence |
 | 豁免记录 | 批次状态文件 `waivers[]` | gate / reason / approved_by / at / review_at |
-| 执行日志 | `.ai/logs/<批次号>.jsonl` | 每次执行追加一行 JSON |
+| 执行日志 | `projects/<项目码>/.agent/logs/<批次号>.jsonl` | 每次执行追加一行 JSON |
 
 ## 执行方式
 
-```bash
-S=07_质量门禁/skills/ai-gate-runner/scripts/gate_run.py
+调用本 Skill 时说明要做什么即可：
 
-python3 $S --list-checks                                        # 检查项库与实现状态
-python3 $S --project <码> --batch <批次号> --gate gate-03
-python3 $S --project <码> --batch <批次号> --all                 # 按顺序跑到第一个未通过
-python3 $S --project <码> --batch <批次号> --gate gate-03 --check
-python3 $S --project <码> --batch <批次号> --gate gate-03 --confirm --by <名字>
-python3 $S --project <码> --batch <批次号> --gate gate-03 --waive --by <名字> \
-        --reason "<原因>" --expires YYYY-MM-DD
-```
+| 你要做什么 | 本 Skill 的行为 |
+|---|---|
+| 跑某道门禁 | **执行该门禁**，写回批次状态文件 |
+| 按顺序跑到第一个未通过 | **依次执行**全部门禁并停下 |
+| 只想看结果，不回写状态（CI 用） | **只校验** |
+| 人工核对完了，要签核 | **签核通过**（须提供真实人名） |
+| 确实要带风险上线 | **豁免**（须提供人名、原因、复查日期） |
+| 想知道有哪些检查项、各是什么 | **列出检查项库与实现状态** |
 
-依赖：Python 3.8+ 与 PyYAML。退出码：`0` 通过 ｜ `1` 未通过或待人工确认 ｜ `2` 执行器自身错误。
+实现是一个脚本（本 Skill 目录下的 `scripts/gate_run.py`），参数说明见脚本 docstring——
+**使用者不需要记参数。**
+
+依赖 Python 3.8+ 与 PyYAML。结果只有三种：**通过** ｜ **未通过或待人工确认** ｜ **执行器自身错误（含拒绝执行）**。
+第三种不是"检查没做"，是"这道门禁根本没跑起来"。
 
 ## 前置条件（不满足则拒绝执行）
 
@@ -92,15 +95,20 @@ python3 $S --project <码> --batch <批次号> --gate gate-03 --waive --by <名�
 | BLOCK 项 `fail` | 门禁置 `failed`，输出明细与定位，不可进入下一阶段 |
 | WARN 项 `fail` | 记入待办，门禁可继续（状态为 `pending_manual`） |
 | 存在 `人` 项或 `skip` 项 | 门禁置 `pending_manual`，输出人工清单与签核命令 |
-| BLOCK 项 skip 且用户要求 `--confirm` | **拒绝签核**，说明需补齐材料或改用 `--waive`（状态保持 `pending_manual`） |
+| BLOCK 项 skip 且用户要求签核 | **拒绝签核**，说明需补齐材料或改用豁免（状态保持 `pending_manual`） |
 | 检查项抛异常 | 记为 `fail` 并附异常信息——**不允许把异常当成通过** |
-| 门禁定义格式错误 | 退出码 2，拒绝执行（不跳过无法解析的检查项） |
-| 上一道门禁未通过 | 退出码 2，提示先完成上一道 |
+| 门禁定义格式错误 | 拒绝执行（不跳过无法解析的检查项） |
+| 上一道门禁未通过 | 拒绝执行，提示先完成上一道 |
 
 ## 已知限制
 
-- 3 个检查项固定返回 `skip`（静态检查、单元覆盖率、无代码仓时的密钥扫描），
-  原因与补齐方式见 `references/检查项清单.md`
+- **4 个检查项不在执行器职责内（`external`）**：静态检查、单元覆盖率、原型 FN 覆盖、`data-fn` 标记统计。
+  前两个执行器不跑命令、不解析五花八门的覆盖率格式；后两个在**原型由需求方外部提供**时无从扫描
+  （那是合法情形，不是配置疏漏）。四项都**补材料没用**，必须由人核对并用 `--evidence` 交代依据。
+  另 **1 个有条件 skip**（密钥扫描：项目仓未挂载时，补上路径即可自动校验）。
+  四态语义与判据见 `references/检查项清单.md` §八 / §十。
+- **豁免的"到期自动复查"未实现。** 复查日期会被记录（且受 90 天上限约束），
+  但没有任何代码会在到期时提醒。现阶段豁免的复查靠人记。
 - `repo` 是兜底字段；文档仓 / 原型仓 / 代码仓分离时用 `docs_repo` / `prototype_repo` / `code_repo` 分别指定，
   否则原型覆盖率、密钥扫描、提交检查会互相污染（详见 `references/检查项清单.md`）
 - `openapi-valid` 只做结构校验，完整规范校验建议在 CI 中追加 `@redocly/cli lint`

@@ -45,10 +45,8 @@
 
 ## 第四步：门禁怎么处理
 
-```bash
-G=07_质量门禁/skills/ai-gate-runner/scripts/gate_run.py
-python3 $G --project <码> --batch <批次号> --gate gate-0X
-```
+**调用 `ai-gate-runner` 执行该阶段对应的门禁**——它自己知道去哪读门禁定义、该跑哪些检查项。
+你不需要知道任何参数，也不需要把参数告诉用户。
 
 | 执行器结果 | 你该做什么 |
 |---|---|
@@ -83,16 +81,19 @@ python3 $G --project <码> --batch <批次号> --gate gate-0X
 ⏸  backend —— 前置条件不满足
 
 原因：契约未冻结（gate-03 状态为 pending_manual）
-需要：核对 gate-03 的人工检查清单后签核：
-     python3 07_质量门禁/skills/ai-gate-runner/scripts/gate_run.py \
-       --project <码> --batch PROJ-20261020-001 --gate gate-03 --confirm --by <你的名字>
+需要：核对下面这几项后签字确认（告诉我你的名字即可，我会替你完成签核）
+
+  - [8] 是否引入新的中间件或第三方依赖
+  - [9] 是否引入新的中间件或第三方依赖
+  - [10] 技术方案符合分层架构规范
+  - [11] 索引设计覆盖高频查询场景
 
 签核后我会继续 backend 及其后的步骤。
 ```
 
 ## 续做
 
-用户说「继续」时：读 `.ai/state/` 下该项目的 `in_progress` 批次，从 `current_step` 恢复。
+用户说「继续」时：读 `projects/<项目码>/.agent/state/` 下该项目的 `in_progress` 批次，从 `current_step` 恢复。
 
 - **不重跑 `status: done` 的步骤**
 - 但**校验其产出物哈希**——变了说明有人手工改过，提示确认后再决定是否重跑
@@ -117,7 +118,7 @@ python3 $G --project <码> --batch <批次号> --gate gate-0X
 
 ```
 批次：PROJ-20261020-001（新建）　进度 8/23
-✅ api —— 产出 docs/02_设计/接口契约.yaml（sha256:7f3a…）
+✅ api —— 产出 <需求名>/02_设计/接口契约.yaml（sha256:7f3a…）
 ⏸  gate-03 设计评审 —— pending_manual
 
 需人工核对（3 项）：
@@ -125,7 +126,8 @@ python3 $G --project <码> --batch <批次号> --gate gate-0X
 - [10] 技术方案符合分层架构规范
 - [11] 索引设计覆盖高频查询场景
 
-核对后执行：
-python3 07_质量门禁/skills/ai-gate-runner/scripts/gate_run.py \
-  --project <码> --batch PROJ-20261020-001 --gate gate-03 --confirm --by <你的名字>
+核对后告诉我结论与你的名字，我来完成签核。
 ```
+
+我回退到上一步时，把上面那段 `[9]` 之类的清单**原样**给用户——
+他核对的是这几项的具体内容，不是"通过/不通过"四个字。

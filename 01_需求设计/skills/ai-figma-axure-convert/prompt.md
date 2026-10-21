@@ -67,7 +67,7 @@
 
 ## 技术栈从快照读
 
-不要自己选前端框架。从 `.ai/spec-effective/<项目码>.md` 读目标技术栈；
+不要自己选前端框架。从 `projects/<项目码>/.agent/spec-effective/<项目码>.md` 读目标技术栈；
 快照不存在就停下，提示先运行 `ai-spec-build`。
 
 ## 完成后

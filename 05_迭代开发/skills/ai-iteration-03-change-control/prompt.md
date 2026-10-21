@@ -30,7 +30,7 @@ parent_batch: PROJ-20260901-003      # ← 关键字段，指向原批次
 created: 2026-10-20T10:00:00+08:00
 owner: <批次负责人>
 current_step: delta-spec
-# 其余按 .ai/state/_模板.yaml
+# 其余按 projects/_template/.agent/state/_模板.yaml
 ```
 
 `parent_batch` 是追溯链的关键：从子批次能回到原批次，从原批次能查到所有子批次。

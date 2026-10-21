@@ -19,17 +19,17 @@ status: implemented
 
 | 输入 | 来源 | 必需 | 校验规则 |
 |---|---|---|---|
-| 全部项目 manifest | `projects/*/project.yaml` | 是 | 至少 2 个非模板项目 |
-| 项目特有条目 | `projects/*/项目特有规范.md` | 否 | — |
+| 全部项目 manifest | `projects/*/.agent/project.yaml` | 是 | 至少 2 个非模板项目 |
+| 项目特有条目 | `projects/*/.agent/rules/*.md` + manifest 的 `project_only` | 否 | — |
 | 现有包条目 | `09_资产库/规范包/**` | 是 | 用于判断"是否已存在于包中" |
-| 规则引用率数据 | `.ai/spec-effective/*.json` | 否 | 用于淘汰分析 |
+| 规则引用率数据 | `projects/<项目码>/.agent/spec-effective/*.json` | 否 | 用于淘汰分析 |
 
 ## 产出契约
 
 | 产出 | 路径 | 格式 |
 |---|---|---|
-| 提升候选清单 | `.ai/index/规范提升候选.md` | Markdown 表格 + 建议归属 |
-| 淘汰候选清单 | `.ai/index/规范淘汰候选.md` | Markdown 表格 + 零引用证据 |
+| 提升候选清单 | `projects/<项目码>/.agent/index/规范提升候选.md` | Markdown 表格 + 建议归属 |
+| 淘汰候选清单 | `projects/<项目码>/.agent/index/规范淘汰候选.md` | Markdown 表格 + 零引用证据 |
 
 **只产出候选，不自动修改任何包或项目文件。** 提升是规范变更，必须由人确认。
 
@@ -41,7 +41,7 @@ status: implemented
 
 ## 执行步骤
 
-1. 收集全部项目的 `project_only`（manifest）与 `项目特有规范.md` 条目
+1. 收集全部项目的 `project_only`（manifest）与 `.agent/rules/` 里的 `STD-PRJ-` 条目
 2. 语义聚类：找出**表达同一约束**的条目（措辞不同但含义相同）
 3. 对每个聚类判断：出现在 ≥3 个项目？（阈值见 `references/提升与淘汰判据.md`）
 4. 对达阈值的聚类，判断建议归属：

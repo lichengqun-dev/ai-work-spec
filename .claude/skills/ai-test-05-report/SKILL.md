@@ -22,7 +22,7 @@ description: 汇总执行结果与缺陷，产出测试报告与上线建议。�
    不要"先跑跑看"
 2. 读 `04_测试验证/skills/ai-test-05-report/prompt.md`，**按它执行**。它是这个 Skill 的指令本体
 3. `references/` 默认只加载 `INDEX.md`，按它的「何时读取」列按需读取，单次不超过 3 个文件
-4. 产出物按 `SKILL.md` 的产出契约落位，并登记到批次状态文件 `.ai/state/<批次号>.yaml` 的 `artifacts`
+4. 产出物按 `SKILL.md` 的产出契约落位，并登记到批次状态文件 `projects/<项目码>/.agent/state/<批次号>.yaml` 的 `artifacts`
 
 ## 为什么要经过这一层
 

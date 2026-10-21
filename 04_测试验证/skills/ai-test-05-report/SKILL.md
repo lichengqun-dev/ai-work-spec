@@ -29,7 +29,7 @@ status: implemented
 
 | 产出 | 路径 | 格式 |
 |---|---|---|
-| 测试报告 | 项目文档仓 `docs/04_测试/测试报告.md` | **含「用例执行率」字段**（见下） |
+| 测试报告 | 项目文档仓 `<需求名>/04_测试/测试报告.md` | **含「用例执行率」字段**（见下） |
 
 **报告必须包含可被机械解析的执行率**，两种写法任选：
 
@@ -102,6 +102,6 @@ gate-05 的 `testcase-executed` 检查项按这两种形式解析。**改了字�
 ## 与其他 Skill 的关系
 
 - 上游：`ai-test-03-execute`、`ai-test-04-regression`
-- 下游：`08_归档交付`（gate-05 通过后进入归档）
+- 下游：`ai-iteration-04-release`（据本报告组织上线方案）→ **gate-05** → 真正上线 → `ai-archive-01-close`
 - 门禁：`testcase-executed`（BLOCK，按执行率字段解析）、`p0p1-closed`（BLOCK，按缺陷台账解析）、
   `rollout-plan-present`（BLOCK）

@@ -20,8 +20,8 @@ status: implemented
 
 | 输入 | 来源 | 必需 | 校验规则 |
 |---|---|---|---|
-| 批次状态文件 | `.ai/state/<批次号>.yaml` | 是 | 各 steps 已终态；gate-05 已 passed/waived |
-| 功能编号总表 | `.ai/index/功能编号总表.md` | 是 | 含本批次的 REQ / FN / TC |
+| 批次状态文件 | `projects/<项目码>/.agent/state/<批次号>.yaml` | 是 | 各 steps 已终态；gate-05 已 passed/waived |
+| 功能编号总表 | `projects/<项目码>/.agent/index/功能编号总表.md` | 是 | 含本批次的 REQ / FN / TC |
 | 全部产出物 | 项目文档仓 `docs/` | 是 | 已登记在状态文件的 `artifacts` |
 | 测试报告 | `ai-test-05-report` 产出 | 是 | 含上线建议 |
 | 上线步骤 | `ai-iteration-04-release` 产出 | 是（gate-06 前置） | 含回滚方案 |
@@ -30,10 +30,10 @@ status: implemented
 
 | 产出 | 路径 | 格式 |
 |---|---|---|
-| 结项报告 | 项目文档仓 `docs/05_交付/结项报告.md` | 按 `templates/批次结项报告模板.md` |
-| 断链检测结果 | 结项报告「三、断链检测」节 + `.ai/index/功能编号总表.md` 断链视图 | 五类断链的计数与明细 |
-| 索引回填 | `.ai/index/功能编号总表.md` | 功能点段的「批次」「提交」「覆盖用例」列 |
-| 终态化状态文件 | `.ai/state/<批次号>.yaml` | `archived: true` + 归档时间 |
+| 结项报告 | 项目文档仓 `<需求名>/05_交付/结项报告.md` | 按 `templates/批次结项报告模板.md` |
+| 断链检测结果 | 结项报告「三、断链检测」节 + `projects/<项目码>/.agent/index/功能编号总表.md` 断链视图 | 五类断链的计数与明细 |
+| 索引回填 | `projects/<项目码>/.agent/index/功能编号总表.md` | 功能点段的「批次」「提交」「覆盖用例」列 |
+| 终态化状态文件 | `projects/<项目码>/.agent/state/<批次号>.yaml` | `archived: true` + 归档时间 |
 
 ## 前置条件（不满足则拒绝执行）
 
@@ -44,11 +44,7 @@ status: implemented
 
 ## 执行步骤
 
-1. **先跑 gate-06**，不手工判断：
-   ```bash
-   S=07_质量门禁/skills/ai-gate-runner/scripts/gate_run.py
-   python3 $S --project <项目码> --batch <批次号> --gate gate-06
-   ```
+1. **先跑 gate-06**（调用 `ai-gate-runner`，说"跑 gate-06"即可），不手工判断。
    自动检查项交给执行器；人工项原样列出，**不代替人判断**。结果为 `failed` 就停下。
 2. **执行断链检测**（五类，见 `00_工作空间配置/命名与编号规范.md` 第 9 节）：
    | 类型 | 判据 |
@@ -67,7 +63,7 @@ status: implemented
 
 - **不修改产出物内容**，只核对存在性与哈希
 - **不补链**。断链意味着缺文档或缺用例，那是人的工作——脚本只能把断链指出来并定位
-- 不删除任何文件（含 `.ai/state/` 下已归档的状态文件）
+- 不删除任何文件（含 `projects/<项目码>/.agent/state/` 下已归档的状态文件）
 - **不在断链非 0 时静默归档**（BLOCK 类非 0 直接拒绝）
 - 不执行 git 操作
 

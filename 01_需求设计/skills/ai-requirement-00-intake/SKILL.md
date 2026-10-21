@@ -21,27 +21,27 @@ status: implemented
 |---|---|---|---|
 | 需求描述 | 用户提供 | 是 | 非空；若过于模糊（无法判断项目归属）则进入澄清流程 |
 | 项目码 | `projects/<项目码>/` | 是 | 目录存在，manifest 可解析 |
-| 已有批次状态 | `.ai/state/*.yaml` | 否 | 存在同项目活跃批次时进入续做判定 |
-| 生效规范快照 | `.ai/spec-effective/<项目码>.json` | 是 | 不存在则提示先运行 `ai-spec-build`；
+| 已有批次状态 | `projects/<项目码>/.agent/state/*.yaml` | 否 | 存在同项目活跃批次时进入续做判定 |
+| 生效规范快照 | `projects/<项目码>/.agent/spec-effective/<项目码>.json` | 是 | 不存在则提示先运行 `ai-spec-build`；
   批次状态文件 `spec_snapshot.hash` 取其中的 `snapshot_hash` 字段 |
 
 ## 产出契约
 
 | 产出 | 路径 | 格式 |
 |---|---|---|
-| 批次状态文件 | `.ai/state/<批次号>.yaml` | 按 `.ai/state/_模板.yaml` |
+| 批次状态文件 | `projects/<项目码>/.agent/state/<批次号>.yaml` | 按 `projects/_template/.agent/state/_模板.yaml` |
 | 判定结论 | 输出给用户 | 路径类型 + 理由 + 下一步 |
 
 ## 前置条件（不满足则拒绝执行）
 
-- `projects/<项目码>/project.yaml` 存在且可解析
-- `.ai/spec-effective/<项目码>.md` 存在（规范快照未生成时拒绝，避免在无规范状态下开工）
+- `projects/<项目码>/.agent/project.yaml` 存在且可解析
+- `projects/<项目码>/.agent/spec-effective/<项目码>.md` 存在（规范快照未生成时拒绝，避免在无规范状态下开工）
 - 需求描述可判断归属项目（判断不了则先澄清，不要猜）
 
 ## 执行步骤
 
 1. 确认项目码；无法确认则向用户澄清，**不猜**
-2. 扫描 `.ai/state/` 中该项目的历史批次
+2. 扫描 `projects/<项目码>/.agent/state/` 中该项目的历史批次
 3. 按下表判定路径类型
 4. 生成批次号 `<项目码大写>-<YYYYMMDD>-<三位序号>`
 5. 写入批次状态文件（`steps` 填本路径要走的具体步骤）

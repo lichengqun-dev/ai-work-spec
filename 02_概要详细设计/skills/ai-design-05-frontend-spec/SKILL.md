@@ -23,13 +23,13 @@ status: implemented
 | 功能详细设计 | `ai-design-02-detail` 产出 | 是 | 每 FN 一节 |
 | 接口契约 | `ai-design-04-api` 产出 | 是 | 每个 operation 带 `x-fn-id` |
 | 前端组件清单 | `09_资产库/组件库/前端组件清单.md` | 否 | 存在则优先复用 |
-| 生效规范快照 | `.ai/spec-effective/<项目码>.md` | 是 | 前端技术栈与工程规范从这里读 |
+| 生效规范快照 | `projects/<项目码>/.agent/spec-effective/<项目码>.md` | 是 | 前端技术栈与工程规范从这里读 |
 
 ## 产出契约
 
 | 产出 | 路径 | 格式 |
 |---|---|---|
-| 前端设计 | 项目文档仓 `docs/02_设计/前端设计.md` | 含页面清单（`PAGE-<模块码>-<3位>`）、组件拆分、状态流转、接口映射 |
+| 前端设计 | 项目文档仓 `<需求名>/02_设计/前端设计.md` | 含页面清单（`PAGE-<模块码>-<3位>`）、组件拆分、状态流转、接口映射 |
 
 ## 前置条件（不满足则拒绝执行）
 
@@ -78,7 +78,7 @@ status: implemented
 
 - 上游：`ai-requirement-03-prototype`、`ai-design-02-detail`、`ai-design-04-api`
 - 下游：`ai-dev-03-frontend`
-- 注意：产出路径 `docs/02_设计/前端设计.md` **含「设计」二字**，因此它**是** gate-03 的 `design` 类产出物，
+- 注意：产出路径 `<需求名>/02_设计/前端设计.md` **含「设计」二字**，因此它**是** gate-03 的 `design` 类产出物，
   会被 `fn-coverage-design`、`fn-design-section`、`decision-recorded` 三项检查读到——
   所以本文件里的 FN 也要按 `## FN-XXX-000 <名称>` 的形式分节，不要写成散文。
   （此前这里写的是「本 Skill 不产出 design 类产出物」，与执行器的路径匹配规则相反，会误导写法）

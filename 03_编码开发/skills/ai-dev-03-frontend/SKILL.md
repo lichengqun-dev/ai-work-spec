@@ -22,7 +22,7 @@ status: implemented
 | 接口契约 | `ai-design-04-api` 产出 | 是 | **冻结态**；哈希须与记录一致 |
 | 前端设计 | `ai-design-05-frontend-spec` 产出 | 是 | 含页面清单、组件拆分、状态流转、接口映射 |
 | 原型工程 | `ai-requirement-03-prototype` 产出 | 是 | 带 `data-fn` 标记 |
-| 生效规范快照 | `.ai/spec-effective/<项目码>.md` | 是 | 前端规范与组件约定的唯一来源 |
+| 生效规范快照 | `projects/<项目码>/.agent/spec-effective/<项目码>.md` | 是 | 前端规范与组件约定的唯一来源 |
 
 ## 产出契约
 

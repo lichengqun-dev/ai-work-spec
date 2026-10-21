@@ -19,8 +19,8 @@ status: implemented
 
 | 输入 | 来源 | 必需 | 校验规则 |
 |---|---|---|---|
-| 批次状态文件 | `.ai/state/<批次号>.yaml` | 是 | 编码阶段各步骤已 `done` |
-| 项目代码仓 | `projects/<项目码>/project.yaml` 的 `repo` | 是 | 执行器据此读 git log 与扫描密钥 |
+| 批次状态文件 | `projects/<项目码>/.agent/state/<批次号>.yaml` | 是 | 编码阶段各步骤已 `done` |
+| 项目代码仓 | `projects/<项目码>/.agent/project.yaml` 的 `repo` | 是 | 执行器据此读 git log 与扫描密钥 |
 | gate-04 定义 | `07_质量门禁/gates/gate-04-*.md` | 是 | 可解析 |
 | 契约哈希记录 | 批次状态文件 | 是 | 用于确认实现基于冻结契约 |
 
@@ -29,31 +29,24 @@ status: implemented
 | 产出 | 路径 | 格式 |
 |---|---|---|
 | 门禁结果 | 批次状态文件 `gates[]` | 由 `ai-gate-runner` 写入 |
-| 评审记录 | 项目文档仓 `docs/03_实现/评审记录.md` | 评审结论、参与人、未通过项与处置 |
+| 评审记录 | 项目文档仓 `<需求名>/03_实现/评审记录.md` | 评审结论、参与人、未通过项与处置 |
 
 ## 前置条件（不满足则拒绝执行）
 
 - gate-03 已通过，契约处于冻结态
 - 编码阶段各步骤（scaffold / backend / frontend / unittest）已 `done`
-- `projects/<项目码>/project.yaml` 的 `repo` 已填真实路径（**未填则拒绝**——执行器的密钥扫描与提交检查都需要项目仓）
+- `projects/<项目码>/.agent/project.yaml` 的 `repo` 已填真实路径（**未填则拒绝**——执行器的密钥扫描与提交检查都需要项目仓）
 - `ai-gate-runner` 已实现
 
 ## 执行步骤
 
-1. 执行门禁：
-   ```bash
-   S=07_质量门禁/skills/ai-gate-runner/scripts/gate_run.py
-   python3 $S --project <项目码> --batch <批次号> --gate gate-04
-   ```
+1. **调用 `ai-gate-runner` 执行 gate-04**（说"跑 gate-04"即可）——本 Skill 不自己做检查项判断
 2. **逐条读出执行器输出**：
    - `fail` 项原样读出明细（执行器已给出提交哈希、文件行号等定位）
    - `skip` 项连同"要做什么才能自动校验"一起读出——**`skip` 不是通过**
    - 人工核对清单原样列出，**不替人判断**
 3. `failed` → 输出未通过项与定位，**停止**
-4. `pending_manual` → 请人核对后签核：
-   ```bash
-   python3 $S --project <项目码> --batch <批次号> --gate gate-04 --confirm --by <名字>
-   ```
+4. `pending_manual` → 请人核对后签核（把执行器给出的核对清单原样转达给用户）
 5. 通过后写评审记录，回写批次状态文件
 
 ## 本门禁的两类重点
@@ -65,8 +58,8 @@ status: implemented
 | `commit-format` | BLOCK | 提交格式与 FN 关联——追溯链的最后一环 |
 | `secrets-externalized` | BLOCK | 硬编码凭据——进 Git 历史后只能轮换密钥 |
 | `fn-has-commit` | WARN | 哪些 FN 没有提交 |
-| `lint-passthrough` | skip | 需在项目仓执行 lint |
-| `unit-coverage-report` | skip | 需项目侧覆盖率报告 |
+| `lint-passthrough` | BLOCK | **external**：需在项目仓执行 lint。不是"查不了"，是"不归执行器查"——签核时必须用 `--evidence` 说明 lint 结果记在哪 |
+| `unit-coverage-report` | WARN | **external**：需项目侧覆盖率报告。签核时用 `--evidence` 说明报告在哪、结论是什么 |
 
 **人工项（本门禁价值最高、也最容易被跳过）**
 

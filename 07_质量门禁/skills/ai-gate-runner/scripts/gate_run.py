@@ -8,10 +8,21 @@
 三条不能破的语义
 ----------------
 1. **找不到检查项实现 → 整道门禁拒绝执行**，而不是跳过这一项。静默跳过等于门禁失效。
-2. **`skip` 不等于 `pass`**。缺少校验材料（项目仓未挂载、依赖尚未实现的 Skill）时记为
-   `skip`，转入人工确认。把"没法校验"当成"校验通过"，是门禁最容易失效的方式。
+2. **`skip` 不等于 `pass`**。缺少校验材料时记为 `skip`，转入人工确认。
+   把"没法校验"当成"校验通过"，是门禁最容易失效的方式。
 3. **执行器不代替人做判断**。`人` 标注的检查项原样列出，等人工确认；门禁不会自动变成
-   `passed`——需要 `--confirm` 显式签核。
+   `passed`——需要显式签核，并留下真实姓名。
+
+第四态 `external`（**不在执行器职责内**）
+---------------------------------------
+与 `skip` 的区别是整个机制的关键：
+
+  skip      —— **缺材料**。补了材料执行器就能自动校验。所以材料不存在时**拒绝签核**。
+  external  —— **不归它查**。补材料没有用，必须由人在执行器之外完成并留下证据。
+               （如静态检查要按项目自己的配置跑；覆盖率报告由项目侧构建工具生成）
+
+含 `external` 项的门禁**可以签核**，但签核时必须用 `--evidence` 说明证据在哪——
+否则「我跑过 lint 了」就是一句无成本的口头话，这条门禁会退回成走过场。
 
 用法
 ----
@@ -20,6 +31,8 @@
   python3 gate_run.py --project <码> --batch <批次号> --all        # 按顺序跑到第一个未通过
   python3 gate_run.py ... --check                      # 只校验，不回写状态
   python3 gate_run.py ... --gate gate-03 --confirm --by 张三       # 人工签核通过
+  python3 gate_run.py ... --gate gate-04 --confirm --by 张三 \
+          --evidence "lint 结果记在 <需求名>/03_实现/评审记录.md"        # 含 external 项时必须附证据
   python3 gate_run.py ... --gate gate-03 --waive --by 张三 --reason "..." --expires 2027-06-30
 
 退出码：0 通过（passed / waived）｜ 1 未通过或待人工确认 ｜ 2 执行器自身错误
@@ -44,8 +57,42 @@ except ImportError:  # pragma: no cover
     sys.exit(2)
 
 PASS, FAIL, SKIP = "pass", "fail", "skip"
+
+# 第四态：**不在执行器职责内**。
+#
+# 它与 `skip` 的区别是整个机制的关键：
+#   skip     —— 缺校验材料。材料可以补，补了执行器就能自动校验。
+#               所以材料不存在时**拒绝签核**（签核的前提是「有人核对过了」）。
+#   external —— 执行器**永远查不了**，不是"暂时缺材料"。比如静态检查要按项目自己的配置跑，
+#               覆盖率报告由项目侧构建工具生成、格式因工具而异。
+#               补材料没用——必须由人在执行器之外完成，并留下证据。
+#
+# 没有这个状态时的实际后果：`lint-passthrough` 是 BLOCK 级却无条件 skip，
+# 于是 gate-04 结构上永远无法 `passed`，每次都必须 `--waive` ——
+# **豁免从"例外通道"变成了"常规通道"**，那正是门禁设计最想避免的事。
+EXTERNAL = "external"
 DONE_STATES = {"done", "skipped", "failed"}
 VALID_GATE_STATUS = {"pending", "passed", "failed", "waived", "pending_manual"}
+
+# 豁免复查期的上限（天）。文档里一直写着「不允许填很远（如 9999-12-31）——那等于没填」，
+# 但代码只校验了日期格式，于是这条规则完全靠人自觉。
+# 「规则一旦只靠人记，就会在第三次被绕过」——本仓库自己的话，所以把它变成机器约束。
+WAIVER_HORIZON_DAYS = 90
+
+# 扫描时跳过的构建产物目录。判断按**路径段**而不是子串——
+# 用子串的话 `mybuild/`、`outbound/` 会被误伤。
+#
+# 为什么必须跳过：这些目录里是**源文件的副本**。不跳过会让同一处问题被重复计数，
+# 而重复计数有两个后果——清单变长（长清单没人读完），以及
+# "134 处"这种数字让人以为问题很严重，实际上只有一半是真实位置。
+BUILD_DIRS = {
+    "target",          # Maven
+    "build", "out",    # Gradle / 通用 / IDEA
+    "node_modules",
+    "dist", ".next", ".nuxt", "coverage",   # 前端构建与产物
+    "__pycache__", ".venv", "venv",         # Python
+    "bin", "obj",                            # .NET
+}
 
 # 产出物按路径关键词归类；项目文档仓的目录命名应与此一致
 PATH_MARKERS = {
@@ -164,6 +211,22 @@ def parse_gate(path: Path) -> Gate:
         if req not in meta:
             raise GateError(f"{path}：元信息缺少 `{req}`")
 
+    # `blocking` 与 `auto_check` 是**说明性字段，不参与判定**：
+    #   · 真正的阻断与否由**每个检查项自己的级别列**（BLOCK / WARN）决定，不在这层
+    #   · "是否有自动检查项"由检查项表格的 `方式` 列直接决定，不需要另声明
+    # 留着它们是因为它们用一句话说明了这道门禁的定位，对读的人有用。
+    # 但既然不参与判定，就必须防止被误当成开关——
+    # 写 `blocking: false` 然后以为这道门禁不再阻断，是这套配置最容易踩的坑。
+    if meta["blocking"].strip().lower() != "true":
+        raise GateError(
+            f"{path}：`blocking` 为 `{meta['blocking']}`，但本设计不支持「整道门禁不阻断」。\n"
+            f"  阻断与否由**检查项各自的级别列**（BLOCK / WARN）决定，与这个字段无关。\n"
+            f"  要让某道门禁不再卡住流程，正确做法是把其中该放行的检查项降为 WARN，"
+            f"而不是把门禁整体标成非阻断——后者会让所有 BLOCK 项一起失效，"
+            f"而读的人只会看到\"这道门禁还在\"。")
+    if meta["auto_check"].strip() not in ("是", "否", "true", "false"):
+        raise GateError(f"{path}：`auto_check` 应为 是 / 否")
+
     m2 = re.match(r"^(gate-\d{2})-", path.name)
     if not m2:
         raise GateError(f"{path}：文件名应为 gate-NN-<名称>.md")
@@ -204,9 +267,9 @@ class Ctx:
     state_path: Path
     state: dict
     batch: dict                 # state 顶层
-    docs_root: Path             # 项目文档仓（产出物路径基准）
+    docs_root: Path | None      # 项目文档仓（产出物路径基准）；未填仓库路径时为 None
     proto_root: Path | None     # 原型工程仓（原型相关检查项的扫描根）
-    code_root: Path | None      # 代码仓（提交与密钥扫描的根）
+    code_roots: list[Path]      # 代码仓（提交与密钥扫描的根）。**可以是多个**——前后端分仓是常态
     artifacts: list[dict]       # state.artifacts（已解析绝对路径）
     gate: Gate
 
@@ -239,15 +302,33 @@ class Ctx:
 
         分开扫描是必要的：原型仓里是页面代码、代码仓里是业务代码，
         用同一个根扫描会让 `data-fn` 覆盖率、密钥扫描、提交检查互相污染。
+
+        代码仓可以是多个（前后端分仓），返回的相对路径**带仓名前缀**——
+        否则两个仓里同名的文件会在报告里分不清是哪个，而密钥扫描的报告必须能定位。
+
+        **跳过构建产物目录**（见 `BUILD_DIRS`）。构建产物是源文件的副本，
+        扫它们会让同一处问题被重复计数——真实案例：某项目的密钥扫描报了 134 处，
+        其中近半来自 `target/classes/` 下 `application.yml` 的副本。
+        重复计数会把清单变长，而**长清单没人会读完**。
         """
-        base = self.proto_root if which == "proto" else self.code_root
-        if not base or not base.is_dir():
-            return []
+        if which == "proto":
+            bases = [self.proto_root] if self.proto_root else []
+        else:
+            bases = list(self.code_roots)
         out = []
-        for p in sorted(base.rglob("*")):
-            if p.is_file() and p.suffix.lower() in exts and ".git" not in p.parts:
+        for base in bases:
+            if not base or not base.is_dir():
+                continue
+            label = base.name
+            for p in sorted(base.rglob("*")):
+                if not p.is_file() or p.suffix.lower() not in exts:
+                    continue
+                parts = p.relative_to(base).parts
+                if ".git" in parts or any(seg in BUILD_DIRS for seg in parts):
+                    continue
                 try:
-                    out.append((str(p.relative_to(base)), p.read_text(encoding="utf-8")))
+                    out.append((f"{label}/{p.relative_to(base)}",
+                                p.read_text(encoding="utf-8")))
                 except (OSError, UnicodeDecodeError):
                     continue
         return out
@@ -262,7 +343,10 @@ class Ctx:
         return sorted(fns)
 
     def parse_number_table(self) -> dict[str, list[dict]]:
-        path = self.root / ".ai" / "index" / "功能编号总表.md"
+        # 编号总表是**项目数据**（projects/<项目码>/projects/<项目码>/.agent/index/），不是全库共用的表。
+        # 放顶层会让两个项目都用同一个模块码（如 TASK）时撞号，
+        # 而「编号一经启用不复用」是这条追溯链的根基。
+        path = self.root / "projects" / self.project / ".agent" / "index" / "功能编号总表.md"
         if not path.is_file():
             return {}
         sections, cur = {}, None
@@ -284,7 +368,7 @@ class Ctx:
 
 
 def load_ctx(root: Path, project: str, batch_id: str, gate: Gate) -> Ctx:
-    mpath = root / "projects" / project / "project.yaml"
+    mpath = root / "projects" / project / ".agent" / "project.yaml"
     if not mpath.is_file():
         raise GateError(f"找不到项目 manifest：{mpath}")
     try:
@@ -292,7 +376,8 @@ def load_ctx(root: Path, project: str, batch_id: str, gate: Gate) -> Ctx:
     except yaml.YAMLError as e:
         raise GateError(f"{mpath} 解析失败：{e}")
 
-    spath = root / ".ai" / "state" / f"{batch_id}.yaml"
+    # 批次状态文件是**项目数据**：projects/<项目码>/projects/<项目码>/.agent/state/<批次号>.yaml
+    spath = root / "projects" / project / ".agent" / "state" / f"{batch_id}.yaml"
     if not spath.is_file():
         raise GateError(f"找不到批次状态文件：{spath}")
     try:
@@ -308,22 +393,58 @@ def load_ctx(root: Path, project: str, batch_id: str, gate: Gate) -> Ctx:
         p = (cand if cand.is_absolute() else (root.parent / cand)).resolve()
         return p if p.is_dir() else fallback
 
+    def _resolve_many(key: str) -> list[Path]:
+        """解析仓库**列表**字段（如 `code_repos`）。
+
+        前后端分仓的项目里，`code_repo` 一个字段装不下两个仓——
+        而提交格式、FN 关联、密钥扫描这三项检查都要扫**全部**代码仓，
+        只扫一个会让另一个仓的同类问题完全漏掉（且不留任何痕迹）。
+        """
+        v = manifest.get(key)
+        if not isinstance(v, list):
+            return []
+        out = []
+        for item in v:
+            if not real_value(item):
+                continue
+            cand = Path(str(item)).expanduser()
+            p = (cand if cand.is_absolute() else (root.parent / cand)).resolve()
+            if p.is_dir():
+                out.append(p)
+        return out
+
     # `repo` 是兜底字段：项目只有一个仓时只填它即可；
     # 文档仓 / 原型仓 / 代码仓分开时，用对应的字段显式指定。
+    #
+    # 三个根必须**对称**地兜底为 None。早先 `docs_root` 多了一个 `or root`（知识库根），
+    # 后果是：manifest 只写了 `repo: <占位>` 时，产出物会被拿到知识库根下解析，
+    # 于是 `artifacts-exist` 报 **FAIL「产出物不存在」** 而不是 **SKIP「无法校验」**。
+    # 那是在断言一件它根本无从知道的事——项目的产出物从不放在知识库根下。
+    # 「没查」被说成「查了，不存在」，和「没查」被说成「查了，是 0」是同一类错误，
+    # 只是方向相反；而假失败更容易让团队直接绕开这道门禁。
     repo = _resolve("repo", None)
-    docs_root = _resolve("docs_repo", None) or repo or root
+    docs_root = _resolve("docs_repo", None) or repo
     proto_root = _resolve("prototype_repo", None) or repo
-    code_root = _resolve("code_repo", None) or repo
+
+    # 代码仓可以是**多个**：`code_repos` 是列表，`code_repo` 是单仓写法，`repo` 兜底。
+    # 三种写法优先级：code_repos > code_repo > repo。
+    code_roots = _resolve_many("code_repos")
+    if not code_roots:
+        one = _resolve("code_repo", None)
+        if one:
+            code_roots = [one]
+    if not code_roots and repo:
+        code_roots = [repo]
 
     arts = []
     for a in (state.get("artifacts") or []):
         if not isinstance(a, dict) or "path" not in a:
             continue
         rel = str(a["path"])
-        arts.append({**a, "rel": rel, "abs": (docs_root / rel)})
+        arts.append({**a, "rel": rel, "abs": (docs_root / rel) if docs_root else None})
 
     return Ctx(root, project, batch_id, spath, state, state,
-               docs_root, proto_root, code_root, arts, gate)
+               docs_root, proto_root, code_roots, arts, gate)
 
 
 # ─── 检查项库 ────────────────────────────────────────────────
@@ -340,23 +461,60 @@ def check(cid: str, desc: str):
 
 
 def _need_proto(ctx: Ctx, why: str):
+    """原型工程仓不可用时 → `external`，不是 `skip`。
+
+    为什么是 external 而不是 skip：**「原型由需求方外部提供」是一个合法情形**。
+    存量系统的功能增强、客户已给精确原型的场景里，本项目根本不会有
+    `ai-requirement-03-prototype` 产出的那种带 `data-fn` 标记的可运行原型工程。
+    补材料也补不出来——那不是"暂时缺"，是"这份材料不会存在"。
+
+    而 `skip` 在 BLOCK 级会拒绝签核，gate-02 又是 `waivable: no`（连豁免都不许），
+    两者叠加曾让 gate-02 **结构上无法通过**，整条流程卡死在原型确认这一步。
+    这与 `lint-passthrough` 造成的 gate-04 死结是同一类缺陷。
+
+    改成 external 后，人**可以**真的去核对「每个 FN 在原型里有没有对应交互」，
+    签核时用 --evidence 说明依据在哪——判断有依据，签核就成立。
+    """
     if not ctx.proto_root:
-        return (SKIP, f"原型工程仓不可用。请在 `projects/{ctx.project}/project.yaml` 里填 "
-                      f"`prototype_repo`（或 `repo`，当文档与原型在同一个仓时）。需在其中执行：{why}")
+        return (EXTERNAL,
+                f"本项目未配置原型工程仓（`prototype_repo`）。执行器查不了 `data-fn` 覆盖——"
+                f"**这不是「暂时缺材料」，而是这类产出物在本项目里不存在**。\n"
+                f"      先分清是哪种情况：\n"
+                f"      ① **原型由需求方外部提供**（合法）→ 请人工核对下面这件事，并在签核时用 "
+                f"--evidence 指出依据（原型链接 / 文件名 / 确认记录）：{why}\n"
+                f"      ② **本项目本该有原型仓但忘了配** → 在 "
+                f"`projects/{ctx.project}/.agent/project.yaml` 里填 `prototype_repo`，然后重跑本门禁自动校验。")
     return None
 
 
 def _need_code(ctx: Ctx, why: str):
-    if not ctx.code_root:
-        return (SKIP, f"代码仓不可用。请在 `projects/{ctx.project}/project.yaml` 里填 "
-                      f"`code_repo`（或 `repo`，当项目只有一个仓时）。需在其中执行：{why}")
+    if not ctx.code_roots:
+        return (SKIP, f"代码仓不可用。请在 `projects/{ctx.project}/.agent/project.yaml` 里填 "
+                      f"`code_repos`（多个仓时，列表）或 `code_repo`（单仓），"
+                      f"都没有时可用 `repo` 兜底。需在其中执行：{why}")
     return None
 
 
+def git_logs_multi(ctx: Ctx, limit: int):
+    """逐个代码仓取提交历史。返回 [(仓名, log 或 None), …]。
+
+    分仓取而不是合并，有两个原因：
+      · **报告要能定位。** 混在一起报「12/30 个提交不合规」，看不出是前端还是后端的问题——
+        而这两个仓的提交规范往往本来就不同。
+      · **"没读到"要能区分。** 某个仓不是 git 仓库时，合并后与"这个仓没有不合规提交"无法分辨。
+    """
+    return [(r.name, git_log(r, limit)) for r in ctx.code_roots]
+
+
 def _need_docs(ctx: Ctx):
+    if not ctx.docs_root:
+        return (SKIP, f"项目文档仓不可用，无法定位产出物。请在 `projects/{ctx.project}/.agent/project.yaml` 里填 "
+                      f"`docs_repo`（或 `repo`，当项目只有一个仓时）。"
+                      f"**产出物路径全部以它为基准，缺了它任何产出物都校验不了——"
+                      f"这不是「产出物不存在」，是「没地方找」。**")
     if not ctx.artifacts:
         return (SKIP, "批次状态文件的 `artifacts` 为空，无产出物可校验。"
-                      "请先让上游 Skill 登记产出物，或检查 `repo` 是否指向了正确的项目文档仓。")
+                      "请先让上游 Skill 登记产出物。")
     return None
 
 
@@ -644,58 +802,80 @@ def _c_decision(ctx: Ctx):
 def _c_commit_fmt(ctx: Ctx):
     if (s := _need_code(ctx, "提交代码后重跑本门禁")):
         return s
-    log = git_log(ctx.code_root, 30)
-    if log is None:
-        return (SKIP, "项目仓不是 git 仓库或无法读取提交历史。")
-    if not log:
-        return (SKIP, "项目仓没有任何提交。")
-    bad = []
-    for h, subject, body in log:
-        m = TASK_RE.match(subject)
-        if not m:
-            bad.append(f"{h} 「{subject[:40]}」类型或格式不符")
-        elif not (FN_RE.search(subject) or FN_RE.search(body)):
-            bad.append(f"{h} 「{subject[:40]}」未关联 FN 编号")
+    per = git_logs_multi(ctx, 30)
+    unreadable = [label for label, log in per if log is None]
+    empty = [label for label, log in per if log == []]
+
+    # 有仓读不到 ⇒ 不能声称"提交格式合规"。这条检查的结论是**全量判断**，
+    # 少读一个仓就等于少判一个仓，而它不会留下痕迹。
+    # 按本执行器的既定语义：缺材料记 skip（≠ pass），转入人工确认。
+    if unreadable:
+        return (SKIP, f"{len(unreadable)}/{len(per)} 个代码仓不是 git 仓库或读不到提交历史："
+                      + "、".join(unreadable)
+                      + "。**没读到不等于没有问题**——请核对 manifest 里的 `code_repos` 是否都指向真实代码仓。"
+                      + f"需在其中执行：提交代码后重跑本门禁。")
+
+    bad, checked = [], 0
+    for label, log in per:
+        for h, subject, body in log:
+            checked += 1
+            m = TASK_RE.match(subject)
+            if not m:
+                bad.append(f"[{label}] {h} 「{subject[:40]}」类型或格式不符")
+            elif not (FN_RE.search(subject) or FN_RE.search(body)):
+                bad.append(f"[{label}] {h} 「{subject[:40]}」未关联 FN 编号")
+    if not checked:
+        return (SKIP, "配置的代码仓都没有任何提交" +
+                      (f"（{('、'.join(empty))}）" if empty else "") + "。")
     if bad:
-        return (FAIL, f"{len(bad)}/{len(log)} 个提交不合规（符合 STD-BASE-002 / 003）："
+        scope = "、".join(label for label, _ in per)
+        return (FAIL, f"{len(bad)}/{checked} 个提交不合规（{scope}，符合 STD-BASE-002 / 003）："
                       + "；".join(bad[:4]))
-    return (PASS, f"最近 {len(log)} 个提交格式合规且均关联 FN 编号。")
+    return (PASS, f"{len(per)} 个代码仓共 {checked} 个提交，格式合规且均关联 FN 编号"
+                  f"（{'、'.join(label for label, _ in per)}）。")
 
 
 @check("fn-has-commit", "每个 FN 是否有对应提交")
 def _c_fn_commit(ctx: Ctx):
     if (s := _need_code(ctx, "提交代码后重跑本门禁")):
         return s
-    log = git_log(ctx.code_root, 200)
-    if log is None:
+    per = git_logs_multi(ctx, 200)
+    unreadable = [label for label, log in per if log is None]
+    if unreadable:
         fns = ctx.scoped_fns()
-        return (SKIP, f"项目仓不是 git 仓库或无法读取提交历史——**本项的 {len(fns)} 个 FN "
+        return (SKIP, f"{len(unreadable)}/{len(per)} 个代码仓读不到提交历史"
+                      f"（{'、'.join(unreadable)}）——**本项的 {len(fns)} 个 FN "
                       f"全部处于「未校验」状态，不是「0 条断链」**。\n"
                       f"  这条区别很重要：断链检测的目标是 0，但「没查」和「查了发现是 0」完全不同。\n"
-                      f"  处理：确认 `projects/{ctx.project}/project.yaml` 的 `repo` 指向的确实是代码仓"
-                      f"（而非文档仓），或改用 `code_repo` 字段单独指定。")
+                      f"  处理：核对 `projects/{ctx.project}/.agent/project.yaml` 的 `code_repos` 是否都指向真实代码仓。")
     fns = ctx.scoped_fns()
     if not fns:
         return (SKIP, "产出物中未检到 FN 编号，无法判断提交关联。")
-    blob = "\n".join(f"{s}\n{b}" for _, s, b in log)
+    # 多个仓的提交合并成一个文本池：一个 FN 的实现可能跨前后端两个仓，
+    # 只要在**任一**仓的提交里出现，就算关联上了。
+    blob = "\n".join(f"{s}\n{b}" for _, log in per for _, s, b in log)
     missing = [f for f in fns if f not in blob]
     if missing:
-        return (FAIL, f"以下 {len(missing)} 个 FN 没有任何提交关联：" + "、".join(missing[:8]))
-    return (PASS, f"范围内 {len(fns)} 个 FN 均有提交关联。")
+        return (FAIL, f"以下 {len(missing)} 个 FN 在任何代码仓的提交里都找不到："
+                      + "、".join(missing[:8]))
+    return (PASS, f"范围内 {len(fns)} 个 FN 均有提交关联"
+                  f"（已检索 {len(per)} 个代码仓：{'、'.join(label for label, _ in per)}）。")
 
 
 @check("lint-passthrough", "编码静态检查")
 def _c_lint(ctx: Ctx):
-    return (SKIP, "静态检查需在项目仓内按该项目自己的配置执行，不在本执行器职责内。"
-                  "请在项目仓执行其 lint 命令（如 `mvn -q verify`、`npm run lint`），"
-                  "将结果附在评审记录中，再用 `--confirm` 签核本项。")
+    return (EXTERNAL, "静态检查需在项目仓内按该项目自己的配置执行，不在本执行器职责内"
+                      "（执行器不跑任意命令、不假设项目的构建工具）。\n"
+                      "      **这不是「暂时查不了」，是「永远不归它查」**——补材料没有用。\n"
+                      "      请在项目仓执行其 lint 命令（如 `mvn -q verify`、`npm run lint`），"
+                      "把结果写进评审记录，然后签核时用 --evidence 指出它记在哪。")
 
 
 @check("unit-coverage-report", "单元测试覆盖率")
 def _c_coverage(ctx: Ctx):
-    return (SKIP, "覆盖率报告由项目侧构建工具生成，格式因工具而异，本执行器没有稳定约定可解析。"
-                  "在项目仓执行测试并生成覆盖率报告后，核对核心模块的分支覆盖是否达标，"
-                  "再用 `--confirm` 签核本项（或按 gate 定义走 `--waive`）。")
+    return (EXTERNAL, "覆盖率报告由项目侧构建工具生成，格式因工具而异，本执行器没有稳定约定可解析。\n"
+                      "      请在项目仓执行测试并生成覆盖率报告，核对核心模块的分支覆盖是否达标，"
+                      "然后签核时用 --evidence 指出报告在哪、结论是什么。")
 
 
 @check("secrets-externalized", "配置与密钥是否外置")
@@ -868,7 +1048,16 @@ def _c_orphan_req(ctx: Ctx):
     src_i = header.index("来源 REQ") if "来源 REQ" in header else None
     if src_i is None:
         return (SKIP, "功能编号总表的「功能点」段缺少「来源 REQ」列，无法判断。"
-                      "请按 `.ai/index/功能编号总表.md` 的表头补上该列。")
+                      "请按 `projects/<项目码>/projects/<项目码>/.agent/index/功能编号总表.md` 的表头补上该列。")
+    # 只有**合法编号**的行才可被校验。表格里保留的 `_示例_ FN-XXX-001` 这类占位行
+    # 不是真实编号——旧实现把它们算进 rows 却在校验时跳过，于是「有行但一行都没查」
+    # 会报成 pass。这是最典型的空集假通过：什么都没验，却说"0 条断链"。
+    valid = [r["cells"][0].strip("` ") for r in rows]
+    valid = [c for c in valid if FN_RE.fullmatch(c)]
+    if not valid:
+        return (SKIP, f"功能编号总表的「功能点」段有 {len(rows)} 行，但都不是合法编号"
+                      f"（多半是模板保留的示例行）。**没有可校验的对象，不等于没有断链。**"
+                      f"请先让 `ai-requirement-02-analysis` 登记真实编号。")
     orphans = []
     for r in rows:
         cells = r["cells"]
@@ -880,7 +1069,7 @@ def _c_orphan_req(ctx: Ctx):
             orphans.append(fn)
     if orphans:
         return (FAIL, f"{len(orphans)} 个 FN 没有来源 REQ（符合 STD-BASE-202）：" + "、".join(orphans[:8]))
-    return (PASS, f"总表中 {len(rows)} 行功能点均有来源 REQ。")
+    return (PASS, f"总表中 {len(valid)} 个 FN 均有来源 REQ。")
 
 
 @check("no-orphan-ids", "编号总表中是否有孤儿编号")
@@ -894,6 +1083,10 @@ def _c_no_orphan(ctx: Ctx):
         fn = r["cells"][0].strip("` ")
         if FN_RE.fullmatch(fn):
             fns.append(fn)
+    # 同上：占位行不算编号。零个编号时「全部被引用」是空话。
+    if not fns:
+        return (SKIP, f"功能编号总表的「功能点」段有 {len(rows)} 行，但都不是合法编号"
+                      f"（多半是模板保留的示例行），无可判断的孤儿编号。")
     blob = ctx.all_artifact_text()
     orphans = [f for f in fns if f not in blob]
     if orphans:
@@ -919,9 +1112,9 @@ def _c_state(ctx: Ctx):
 
 @check("artifacts-exist", "产出物是否齐备且未被外部修改")
 def _c_artifacts(ctx: Ctx):
+    if (s := _need_docs(ctx)):
+        return s
     arts = ctx.artifacts
-    if not arts:
-        return (SKIP, "批次状态文件的 `artifacts` 为空，无产出物可核对。")
     missing, mismatch, dirs = [], [], 0
     for a in arts:
         p = a.get("abs")
@@ -946,9 +1139,20 @@ def _c_artifacts(ctx: Ctx):
 
 
 def git_log(repo: Path, limit: int):
+    """取提交历史。**跳过合并提交**（`--no-merges`）。
+
+    合并提交是 Git 自动生成的（`Merge branch 'x' into 'release'`），
+    人**不可能**给它写 `<type>(<scope>): <subject>` 和 FN 编号。
+    不跳过它们，`commit-format` 会对所有走合并流（GitLab MR / GitHub PR）的仓库全红，
+    而团队唯一能做的"修复"就是关掉这道门禁——那正是最坏的结局。
+
+    排除合并提交不影响追溯：真正带 FN 的是被合并的那些业务提交，它们仍在历史里。
+    """
     try:
-        r = subprocess.run(["git", "-C", str(repo), "log", f"-n{limit}", "--format=%H%x1f%s%x1f%b%x1e"],
-                           capture_output=True, text=True, timeout=30)
+        r = subprocess.run(
+            ["git", "-C", str(repo), "log", f"-n{limit}", "--no-merges",
+             "--format=%H%x1f%s%x1f%b%x1e"],
+            capture_output=True, text=True, timeout=30)
     except (OSError, subprocess.SubprocessError):
         return None
     if r.returncode != 0:
@@ -967,7 +1171,8 @@ def git_log(repo: Path, limit: int):
 # ─── 执行与汇总 ──────────────────────────────────────────────
 
 def run_gate(ctx: Ctx, write: bool, confirm: bool, by: str,
-             waive: bool, reason: str, expires: str) -> tuple[str, list, list]:
+             waive: bool, reason: str, expires: str,
+             evidence: str = "") -> tuple[str, list, list, str]:
     gate = ctx.gate
     results, manual = [], []
 
@@ -995,6 +1200,7 @@ def run_gate(ctx: Ctx, write: bool, confirm: bool, by: str,
     warn_fail = [r for r in results if r["level"] == "WARN" and r["result"] == FAIL]
     skipped = [r for r in results if r["result"] == SKIP]
     block_skip = [r for r in skipped if r["level"] == "BLOCK"]
+    external = [r for r in results if r["result"] == EXTERNAL]
 
     refusal = ""
     if waive:
@@ -1004,8 +1210,10 @@ def run_gate(ctx: Ctx, write: bool, confirm: bool, by: str,
     elif block_fail:
         status = "failed"
     elif block_skip and confirm:
-        # BLOCK 项缺校验材料时，签核不成立：签核的前提是「有人核对过了」，
-        # 而材料根本不存在时无从核对。这类只能走豁免（带批准人与复查期）。
+        # BLOCK 项**缺材料**时签核不成立：签核的前提是「有人核对过了」，
+        # 而材料根本不存在时无从核对。这类只能补材料，或走豁免。
+        # 注意这里只算 skip，**不算 external**——external 是职责边界，
+        # 有人的判断可依赖，因此可以签核（但要附证据，见下）。
         status = "pending_manual"
         refusal = (
             f"{len(block_skip)} 个 BLOCK 级检查项因缺少校验材料而 skip，"
@@ -1014,9 +1222,22 @@ def run_gate(ctx: Ctx, write: bool, confirm: bool, by: str,
             f"  这种情况下签核下去，门禁记录会显示「已通过」，而它其实什么都没查。\n"
             f"  两条出路：① 补齐材料后重跑；② 用 --waive 带批准人与复查期豁免。"
         )
+    elif external and confirm and not evidence:
+        # external 项可以签核，但**必须说清证据在哪**。
+        # 不要求证据的话，「我跑过 lint 了」会成为一句无成本的口头话，
+        # 那这条门禁就退化成了走过场。
+        status = "pending_manual"
+        refusal = (
+            f"{len(external)} 个检查项不在执行器职责内（external），"
+            f"需要人在执行器之外完成校验。\n"
+            f"  这类项可以签核，但**必须附证据**——签核时用 --evidence 说明结果记在哪。\n"
+            f"  缺了它，「我跑过 lint 了」就是一句无成本的口头话，"
+            f"这条门禁也就退回成了走过场。\n"
+            f"  涉及：" + "、".join(r["id"] for r in external)
+        )
     elif confirm:
         status = "passed"
-    elif manual or skipped:
+    elif manual or skipped or external:
         status = "pending_manual"
     else:
         status = "passed"
@@ -1031,12 +1252,18 @@ def run_gate(ctx: Ctx, write: bool, confirm: bool, by: str,
                      + (f"；豁免时有 {len(block_fail)} 个 BLOCK 项未通过" if block_fail else "")
                      if waive
                      else refusal if refusal else
-                     (f"人工签核通过" if confirm else
+                     # 附注在两道门禁里含义不同：gate-04 的 external 项要交代 lint / 覆盖率报告记在哪；
+                     # gate-02 没有 external 项，附注写的是"谁确认了什么"。
+                     # 写死成「external 证据」会让后一种读起来莫名其妙——那两样东西它根本没有。
+                     (f"人工签核通过" + (f"（签核附注：{evidence}）" if evidence else "")
+                      if confirm else
                       f"BLOCK 失败 {len(block_fail)} 项" if block_fail else
-                      f"待人工确认 {len(manual) + len(skipped)} 项")),
+                      f"待人工确认 {len(manual) + len(skipped) + len(external)} 项")),
             "checks": results,
             "manual_pending": [m["text"] for m in manual],
             "block_skip": [r["id"] for r in block_skip],
+            "external_pending": [r["id"] for r in external],
+            "external_evidence": evidence or None,
         })
         if waive:
             ctx.batch.setdefault("waivers", []).append({
@@ -1046,19 +1273,20 @@ def run_gate(ctx: Ctx, write: bool, confirm: bool, by: str,
         ctx.state_path.write_text(
             yaml.safe_dump(ctx.batch, allow_unicode=True, sort_keys=False, width=100),
             encoding="utf-8")
-        log = ctx.root / ".ai" / "logs" / f"{ctx.batch_id}.jsonl"
+        log = ctx.root / "projects" / ctx.project / ".agent" / "logs" / f"{ctx.batch_id}.jsonl"
         log.parent.mkdir(parents=True, exist_ok=True)
         with log.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps({
                 "at": now_iso(), "gate": gate.gate_id, "status": status,
                 "block_fail": len(block_fail), "warn_fail": len(warn_fail),
-                "skipped": len(skipped), "manual": len(manual), "by": entry["by"],
+                "skipped": len(skipped), "external": len(external),
+                "manual": len(manual), "by": entry["by"],
             }, ensure_ascii=False) + "\n")
 
     return status, results, manual, refusal
 
 
-ICON = {PASS: "✅", FAIL: "❌", SKIP: "⏭️ "}
+ICON = {PASS: "✅", FAIL: "❌", SKIP: "⏭️ ", EXTERNAL: "🔧"}
 
 
 def report(ctx: Ctx, status: str, results, manual, write: bool, refusal: str = "") -> None:
@@ -1079,27 +1307,38 @@ def report(ctx: Ctx, status: str, results, manual, write: bool, refusal: str = "
 
     skipped = [r for r in results if r["result"] == SKIP]
     if skipped:
-        print(f"\n  ⚠️  {len(skipped)} 项无法自动校验（skip ≠ pass）。"
-              f"补齐材料或人工确认后再签核。")
+        print(f"\n  ⚠️  {len(skipped)} 项**缺校验材料**，无法自动校验（skip ≠ pass）。"
+              f"补齐材料后重跑即可自动校验；材料补不齐时不能签核，只能走豁免。")
+
+    external = [r for r in results if r["result"] == EXTERNAL]
+    if external:
+        print(f"\n  🔧 {len(external)} 项**不在执行器职责内**（external ≠ skip）。"
+              f"补材料没用——需要在执行器之外做完，并把证据留下：")
+        for e in external:
+            print(f"     [{e['no']}] {e['text']}")
 
     if refusal:
         print(f"\n  ⛔ {refusal}")
     elif status == "failed":
         print("\n  → 门禁不通过，不可进入下一阶段。修正 BLOCK 项后重跑。")
     elif status == "pending_manual":
-        try:
-            script = Path(__file__).resolve().relative_to(ctx.root).as_posix()
-        except ValueError:
-            script = Path(__file__).name
-        print(f"\n  → 待人工确认。核对上方清单后执行：")
-        print(f"     python3 {script} --project {ctx.project} --batch {ctx.batch_id} "
-              f"--gate {g.gate_id} --confirm --by <你的名字>")
-        print(f"     （路径相对仓库根，可直接复制执行）")
-        print(f"     （若上方有 BLOCK 级 skip，--confirm 会被拒绝——那些项需要 --waive）")
+        print(f"\n  → 待人工确认。需要人给出结论：")
+        print(f"     · 核对上方清单——这些项需要判断力，**执行器不替你拍板**")
+        if external:
+            # 这里的提示必须是**通用的**。早先它硬编码成「lint 结果 / 覆盖率报告」——
+            # 那是 gate-04 的情形，而 external 现在也被 gate-02（原型覆盖）用到，
+            # 提示词与场景对不上会让人以为系统搞错了门禁。
+            print(f"     · 说明 🔧 项的**证据在哪**——逐项给出可复核的依据")
+            print(f"       （原型链接 / 文件路径 / 确认记录 / 外部命令输出等），不要只说「做过了」")
+        print(f"     · 给出**真实姓名**")
+        print(f"     → 由 `ai-gate-runner` 完成签核；交证据用 `--evidence <说明>`。")
+        print(f"     （这份输出是给人看的结论清单，不是让你去拼命令行。）")
     elif status == "passed":
         print("\n  → 门禁通过。")
     elif status == "waived":
-        print("\n  → 门禁已豁免（已记入 waivers，到期自动复查）。")
+        print(f"\n  → 门禁已豁免（已记入 waivers，复查日期 {expires}）。")
+        print("     ⚠️  到期自动提醒**尚未实现**——复查需要有人自己排期去看，")
+        print("        否则这条豁免会安静地变成永久遗忘。")
     if not write:
         print("\n  （--check：未回写状态文件）")
 
@@ -1107,7 +1346,7 @@ def report(ctx: Ctx, status: str, results, manual, write: bool, refusal: str = "
 def main() -> int:
     ap = argparse.ArgumentParser(description="ai-gate-runner · 统一门禁执行器")
     ap.add_argument("--project")
-    ap.add_argument("--batch", help="批次号（.ai/state/<批次号>.yaml）")
+    ap.add_argument("--batch", help="批次号（projects/<项目码>/projects/<项目码>/.agent/state/<批次号>.yaml）")
     ap.add_argument("--gate", help="门禁 id，如 gate-03；省略则按顺序跑到第一个未通过")
     ap.add_argument("--all", action="store_true", help="按顺序执行全部门禁，遇到未通过即停")
     ap.add_argument("--check", action="store_true", help="只校验，不回写状态文件")
@@ -1116,6 +1355,9 @@ def main() -> int:
     ap.add_argument("--reason", default="", help="豁免原因（--waive 必填）")
     ap.add_argument("--expires", default="", help="豁免复查日期 YYYY-MM-DD（--waive 必填）")
     ap.add_argument("--by", default="", help="签核 / 豁免人")
+    ap.add_argument("--evidence", default="",
+                    help="签核附注：external 项的证据在哪、或「谁确认了什么」。"
+                         "门禁含 external 项时 --confirm 必填")
     ap.add_argument("--list-checks", action="store_true", help="列出检查项库")
     ap.add_argument("--repo", help="仓库根目录（默认自动向上查找）")
     args = ap.parse_args()
@@ -1126,7 +1368,15 @@ def main() -> int:
         if args.list_checks:
             gates = discover_gates(root)
             used = {it.check_id for g in gates.values() for it in g.items if it.is_auto}
-            print(f"\n检查项库（共 {len(CHECKS)} 项；门禁定义引用 {len(used)} 项）\n")
+            # 两个数字要分开说：`used` 是**去重后的唯一检查项数**，
+            # 而门禁实际引用它的次数更多（同一个检查项会被多道门禁复用，如 gate-06 的断链三项）。
+            # 只报前者会被读成"总共只引用了这么多次"，是计数口径最容易混淆的地方。
+            n_refs = 0
+            if (root / "07_质量门禁" / "gates").is_dir():
+                for g in sorted((root / "07_质量门禁" / "gates").glob("gate-*.md")):
+                    n_refs += len(re.findall(r"auto:([a-z0-9-]+)", g.read_text(encoding="utf-8")))
+            print(f"\n检查项库（共 {len(CHECKS)} 项；门禁定义引用 {len(used)} 个唯一检查项，"
+                  f"合计 {n_refs} 处引用）\n")
             for cid in sorted(CHECKS):
                 mark = "被引用" if cid in used else "未引用"
                 print(f"  {cid:<26} {mark}  {CHECKS[cid][0]}")
@@ -1158,6 +1408,23 @@ def main() -> int:
                 raise GateError("--waive 必须提供 --by（豁免必须留痕到人）")
             if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", args.expires):
                 raise GateError("--expires 需为 YYYY-MM-DD")
+            try:
+                _exp = _dt.date.fromisoformat(args.expires)
+            except ValueError:
+                raise GateError(f"--expires 不是合法日期：{args.expires}")
+            _today = _dt.date.today()
+            _days = (_exp - _today).days
+            if _days <= 0:
+                raise GateError(
+                    f"--expires 必须晚于今天（{_today.isoformat()}）。\n"
+                    f"  填一个已过或当天的日期，等于这次豁免生来就该复查——"
+                    f"那说明该补的是材料，不是走豁免。")
+            if _days > WAIVER_HORIZON_DAYS:
+                raise GateError(
+                    f"--expires 距今天 {_days} 天，超过 {WAIVER_HORIZON_DAYS} 天上限。\n"
+                    f"  填很远的日期（如 9999-12-31）等于把「临时豁免」变成「永久遗忘」——\n"
+                    f"  这正是豁免机制要防的事。若确实需要更长期限，那说明它不该走豁免，\n"
+                    f"  而该改规范或改流程（豁免是例外通道，不是常规通道）。")
         if (args.confirm or args.waive) and not args.by:
             raise GateError("--confirm / --waive 必须提供 --by")
 
@@ -1185,7 +1452,8 @@ def main() -> int:
             ctx = load_ctx(root, args.project, args.batch, gate)
             status, results, manual, refusal = run_gate(
                 ctx, write=not args.check, confirm=args.confirm, by=args.by,
-                waive=args.waive, reason=args.reason, expires=args.expires)
+                waive=args.waive, reason=args.reason, expires=args.expires,
+                evidence=args.evidence)
             report(ctx, status, results, manual, write=not args.check, refusal=refusal)
 
             if status in ("failed", "pending_manual"):

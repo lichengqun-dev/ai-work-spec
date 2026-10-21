@@ -5,8 +5,8 @@
 | 知识 | 位置 |
 |---|---|
 | **变更管理规范** | `05_迭代开发/standards/变更管理规范.md`——**必读**（`STD-BASE-601`） |
-| 批次状态模板 | `.ai/state/_模板.yaml`（`type: change` 与 `parent_batch` 字段） |
-| 原批次状态文件 | `.ai/state/<原批次号>.yaml` |
+| 批次状态模板 | `projects/_template/.agent/state/_模板.yaml`（`type: change` 与 `parent_batch` 字段） |
+| 原批次状态文件 | `projects/<项目码>/.agent/state/<原批次号>.yaml` |
 
 ## 什么时候该在本目录新增文件
 

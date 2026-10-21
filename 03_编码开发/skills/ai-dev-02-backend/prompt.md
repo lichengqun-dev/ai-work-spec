@@ -27,7 +27,7 @@
 
 ```bash
 # 先读快照，再写代码
-.ai/spec-effective/<项目码>.md
+projects/<项目码>/.agent/spec-effective/<项目码>.md
 ```
 
 快照里的 B 段（按需检索索引）按触发场景列出了条目，例如：
@@ -95,7 +95,7 @@ feat(FN-CORE-045): 列表页新增导出接口       ← 格式 + FN 编号
 
 ```
 FN：FN-CORE-045 列表页导出
-设计章节：docs/02_设计/功能详细设计.md §FN-CORE-045
+设计章节：<需求名>/02_设计/功能详细设计.md §FN-CORE-045
 契约片段：POST /api/v1/export（x-fn-id: FN-CORE-045）
 遵循的规范条目：STD-SB3-001（jakarta 命名空间）、STD-DM8-001（CLOB 读取）、STD-BASE-323（分页上限）
 

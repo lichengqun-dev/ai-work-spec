@@ -6,12 +6,9 @@
 
 ## 你要做的事
 
-```bash
-S=07_质量门禁/skills/ai-gate-runner/scripts/gate_run.py
-python3 $S --project <项目码> --batch <批次号> --gate gate-04
-```
+**调用 `ai-gate-runner` 执行 gate-04**——说"跑 gate-04"即可，本 Skill 不自己模拟一遍检查。
 
-跑之前先确认 `projects/<项目码>/project.yaml` 的 `repo` 填了真实路径——
+跑之前先确认 `projects/<项目码>/.agent/project.yaml` 的 `repo` 填了真实路径——
 没填的话密钥扫描与提交检查都会记 `skip`，等于这两项没查。
 
 ## 跑完之后逐条读输出
@@ -59,11 +56,9 @@ gate-04 的自动项只有 5 项，人工项也有 5 项。**自动项全绿不�
 
 ## 签核
 
-```bash
-python3 $S --project <项目码> --batch <批次号> --gate gate-04 --confirm --by <真实人名>
-```
+签核由 `ai-gate-runner` 执行，**带上用户提供的真实人名**。
 
-`--by` 填 `auto`、`admin` 之类等于没留痕——门禁记录的价值在于能回答"谁在什么时候确认的"。
+填 `auto`、`admin` 之类等于没留痕——门禁记录的价值在于能回答"谁在什么时候确认的"。
 
 ## 你绝对不要做的事
 

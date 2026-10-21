@@ -5,7 +5,7 @@
 | 知识 | 位置 |
 |---|---|
 | 文档与代码一致性要求 | `07_质量门禁/gates/gate-06-归档交付.md` 的人工项 |
-| 产出物哈希机制 | `.ai/state/_模板.yaml` 的 `artifacts` 段说明 |
+| 产出物哈希机制 | `projects/_template/.agent/state/_模板.yaml` 的 `artifacts` 段说明 |
 | 变更子批次流程 | `05_迭代开发/standards/变更管理规范.md`（`STD-BASE-601`） |
 
 ## 什么时候该在本目录新增文件

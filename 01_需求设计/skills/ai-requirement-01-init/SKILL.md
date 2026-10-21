@@ -20,17 +20,17 @@ status: implemented
 | 输入 | 来源 | 必需 | 校验规则 |
 |---|---|---|---|
 | 批次状态文件 | `ai-requirement-00-intake` 产出 | 是 | `current_step` 为 `init` |
-| 项目 manifest | `projects/<项目码>/project.yaml` | 是 | 含 `repo` 字段 |
-| 生效规范快照 | `.ai/spec-effective/<项目码>.md` | 是 | 存在 |
+| 项目 manifest | `projects/<项目码>/.agent/project.yaml` | 是 | 含 `repo` 字段 |
+| 生效规范快照 | `projects/<项目码>/.agent/spec-effective/<项目码>.md` | 是 | 存在 |
 
 ## 产出契约
 
 | 产出 | 路径 | 格式 |
 |---|---|---|
-| 文档仓目录骨架 | 项目文档仓 | `docs/00_批次` ~ `docs/05_交付` |
+| 文档仓目录骨架 | 项目文档仓 | `<需求名>/00_批次` ~ `<需求名>/05_交付` |
 | 批次上下文 | 项目文档仓 `CLAUDE.md`（L3） | ≤ 80 行 |
 | 原型工程仓骨架 | 独立仓库 | 最小可运行工程 |
-| 更新后的状态文件 | `.ai/state/<批次号>.yaml` | `init` 步骤置 done |
+| 更新后的状态文件 | `projects/<项目码>/.agent/state/<批次号>.yaml` | `init` 步骤置 done |
 
 ## 前置条件（不满足则拒绝执行）
 

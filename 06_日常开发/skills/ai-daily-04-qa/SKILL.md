@@ -20,13 +20,13 @@ status: implemented
 
 | 顺序 | 位置 | 回答什么问题 |
 |---|---|---|
-| 1 | `.ai/spec-effective/<项目码>.md` | 现在该遵守什么规范 |
-| 2 | `projects/<项目码>/project.yaml` | 这个项目用哪些包、有哪些项目特有差异 |
+| 1 | `projects/<项目码>/.agent/spec-effective/<项目码>.md` | 现在该遵守什么规范 |
+| 2 | `projects/<项目码>/.agent/project.yaml` | 这个项目用哪些包、有哪些项目特有差异 |
 | 3 | `09_资产库/规范包/`（C 段来源链指向的条目） | 某条规范为什么是这样、被谁改过 |
-| 4 | `.ai/index/功能编号总表.md` | 某个编号对应什么、谁引用了它 |
-| 5 | `.ai/state/<批次号>.yaml` | 某个批次当时做了什么、卡在哪 |
+| 4 | `projects/<项目码>/.agent/index/功能编号总表.md` | 某个编号对应什么、谁引用了它 |
+| 5 | `projects/<项目码>/.agent/state/<批次号>.yaml` | 某个批次当时做了什么、卡在哪 |
 | 6 | `docs/设计方案.md` | 这套机制为什么这么设计 |
-| 7 | `09_资产库/故障案例库/`、`.ai/memory/项目约定.md` | 历史上的坑与约定 |
+| 7 | `09_资产库/故障案例库/`、`projects/<项目码>/.agent/memory/项目约定.md` | 历史上的坑与约定 |
 
 ## 输入契约
 
@@ -89,5 +89,5 @@ status: implemented
 ## 与其他 Skill 的关系
 
 - 只读，不写任何文件（除经用户明确要求补记之外）
-- 补齐缺口时：`ai-spec-promote`（规范层面）／`.ai/memory/项目约定.md`（约定层面）
+- 补齐缺口时：`ai-spec-promote`（规范层面）／`projects/<项目码>/.agent/memory/项目约定.md`（约定层面）
 - 与 `ai-spec-build` 的分工：那个把多层规范合成快照；这个在快照之上答题

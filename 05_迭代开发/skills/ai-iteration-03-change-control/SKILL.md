@@ -22,15 +22,15 @@ status: implemented
 |---|---|---|---|
 | 增量设计说明 | `ai-iteration-02-delta-spec` 产出 | 是 | 含差异项清单 |
 | 影响面分析 | `ai-iteration-01-impact` 产出 | 是 | 含影响等级与建议路径 |
-| 原批次状态文件 | `.ai/state/<原批次号>.yaml` | 是 | **`archived: true`**——原批次必须已归档 |
+| 原批次状态文件 | `projects/<项目码>/.agent/state/<原批次号>.yaml` | 是 | **`archived: true`**——原批次必须已归档 |
 | 原批次产出物 | 项目文档仓 | 是 | 基线，**只读** |
 
 ## 产出契约
 
 | 产出 | 路径 | 格式 |
 |---|---|---|
-| 变更子批次状态 | `.ai/state/<原批次号>-C<n>.yaml` | 按 `.ai/state/_模板.yaml`，`type: change` |
-| 变更登记 | 项目文档仓 `docs/迭代/变更登记.md` | 变更项 + 基线对比 + 批准确认 |
+| 变更子批次状态 | `projects/<项目码>/.agent/state/<原批次号>-C<n>.yaml` | 按 `projects/_template/.agent/state/_模板.yaml`，`type: change` |
+| 变更登记 | 项目文档仓 `<需求名>/迭代/变更登记.md` | 变更项 + 基线对比 + 批准确认 |
 | 基线快照记录 | 原批次状态文件（**只追加不改**） | 记录被哪个子批次改动 |
 
 ## 前置条件（不满足则拒绝执行）
