@@ -14,7 +14,6 @@ _（**派生副本**：散文改了要重新提炼，否则构建报「源文档
 <!-- meta
 tier: resident
 scope: AI 说「表里有某字段 / 某外键」时
-frozen: false
 -->
 
 **规则**：AI 声称"表里有某某字段""有某某外键"时，**必须让它 `describe` 或跑一条 `SELECT` 验证。没查库的结论当没说过。**
@@ -26,7 +25,6 @@ frozen: false
 <!-- meta
 tier: resident
 scope: 口径冲突时判断以谁为准
-frozen: false
 -->
 
 **规则**：口径冲突时按此优先级判定（**写死，不要临场商量**）：

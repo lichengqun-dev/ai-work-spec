@@ -14,7 +14,6 @@ _（**派生副本**：散文改了要重新提炼，否则构建报「源文档
 <!-- meta
 tier: resident
 scope: Controller / Service 编写
-frozen: false
 -->
 
 **规则**：接口返回走各期既有的统一封装——**一期 `iform-basic-response`，二期 `pp-common-root`**。Controller 不吞异常，统一异常处理器兜底。**错误码沿用各期既有体系，不自造。不要新造一套返回结构**——前端要按返回结构写解析，多一套就多一套分支。
@@ -26,7 +25,6 @@ frozen: false
 <!-- meta
 tier: resident
 scope: 跨服务调用、调用一期能力
-frozen: false
 -->
 
 **规则**：二期调一期的认证、组织、表单、消息、文件、待办能力，**一律通过 `iform-integration-layer` 提供的 SDK**：
@@ -47,7 +45,6 @@ SDK 清单：`OAuthSdk` / `OrgSdk` / `FormSdk` / `MessageSdk` / `NotifySdk` / `F
 <!-- meta
 tier: resident
 scope: 新增模块、新增接口路径
-frozen: false
 -->
 
 **规则**：二期各模块统一通过配置项 `app.route.prefix: /pp/<域>/v1` 维护网关前缀，**不要在 Controller 上硬编码完整路径**。
@@ -59,7 +56,6 @@ frozen: false
 <!-- meta
 tier: resident
 scope: 本地启动、构建、排查 mapper 加载失败
-frozen: false
 -->
 
 **规则**：一期与二期后端**都强制 JDK 1.8**。本地路径 `C:\Program Files\Java\jdk1.8.0_491`，不要用默认的 JDK 17。
@@ -76,7 +72,6 @@ frozen: false
 <!-- meta
 tier: resident
 scope: 判断改代码落在哪
-frozen: false
 -->
 
 **规则**：一期后端来自 iform 上游 SVN **单向同步**。**对 `iform-*` 模块的本地改动会在下次同步时被覆盖**。定制代码只写 `pp-project-root` / `pp-document-root`；确需改平台行为时，把定制副本放 `pp-*` 或用配置实现。
@@ -88,7 +83,6 @@ frozen: false
 <!-- meta
 tier: indexed
 scope: 写日志
-frozen: false
 -->
 
 **规则**：禁止在循环里按 INFO 打大对象 JSON。**这是本项目的历史债，二期已清理多处，不要再引入。**
@@ -101,7 +95,6 @@ frozen: false
 <!-- meta
 tier: indexed
 scope: 写后端业务逻辑
-frozen: false
 -->
 
 **规则**：新增**核心 Service 逻辑**必须带 JUnit 5 单测，命名 `{被测类}Test`。二期改完本地起服务（~2 分钟）冒烟再提交；一期启动 3~9 分钟，至少跑一次核心链路（登录 + 主列表接口）。

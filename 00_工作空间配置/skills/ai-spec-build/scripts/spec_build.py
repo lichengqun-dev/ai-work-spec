@@ -1,12 +1,26 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""ai-spec-build —— 规范编译器
+"""ai-spec-build —— 项目规范底座编译器
 
-把多层规范（团队基线 / 技术栈包 / 领域包 / 项目层 / 批次特例）编译成单一「生效规范快照」。
+把**项目级**规范编译成单一「项目规范底座」（下称快照），内容只有三样：
 
-为什么必须在构建期合并，而不是让模型运行时读多层文件自己合并：
-  1. token 成本   —— 五层全文每次执行都要读一遍
-  2. 结果确定性   —— 运行时合并每次结果可能不同，规范的意义恰恰在于"每次都一样"
+  1. 项目级条目（`.agent/rules/` 提炼产物 + manifest 内联的 `project_only`）
+  2. 项目声明（本项目选了哪些包）——**指针，不是规则**
+  3. 来源链与漂移告警
+
+## 为什么快照只装项目级
+
+域级规范（各业务域 `standards/`、`09_资产库/规范包/`）**到对应阶段按需读取原文**，
+不需要编译：它们只在某个阶段用得上，读一次就够，不存在"每个阶段反复读"的问题。
+只有**项目级**内容每个阶段都要用，才值得编译一次，避免反复读项目根的散文。
+
+域级不再是本 Skill 的输入，也不参与编号校验与合并——**域级不使用条目机制**。
+
+## 为什么仍然要在构建期做
+
+项目级条目必须可复现、可 diff、可审计：
+  1. token 成本   —— 项目根散文与 rules 每次执行都读一遍
+  2. 结果确定性   —— 运行时摘要每次措辞都可能不同，规范的意义恰恰在于"每次都一样"
   3. 冲突可见性   —— 模型遇到冲突会静默挑一个；构建期遇到冲突直接失败
   4. 可审计性     —— 快照带哈希，能精确回答"这个批次当时用的是哪版规范"
 
@@ -36,16 +50,6 @@ except ImportError:  # pragma: no cover
     sys.stderr.write("错误：缺少 PyYAML。安装：pip install pyyaml\n")
     sys.exit(2)
 
-# ── 层级定义 ────────────────────────────────────────────────
-LAYER_RANK = {"baseline": 0, "stack": 10, "domain": 20, "project": 30, "batch": 40}
-LAYER_LABEL = {
-    "baseline": "L0 团队基线",
-    "stack": "L1 技术栈包",
-    "domain": "L2 领域包",
-    "project": "L3 项目层",
-    "batch": "L4 批次特例",
-}
-
 A_SECTION_BUDGET_LINES = 120
 MAX_PROJECT_ONLY_ITEMS = 30
 
@@ -54,13 +58,18 @@ MAX_PROJECT_ONLY_ITEMS = 30
 # 为什么是这里而不是项目根：项目根的文档是**人读的散文**——人工维护复制进来、
 # 或 AI 读代码仓梳理总结出来，**不遵守编号约定**，改动频繁。
 # 而快照要的是稳定的、可审计的、能追回出处的条目。两者性质不同，就不能同处一室。
-# `.agent/` 本来就是机器面（组合声明、批次状态、编号总表都在这），条目也归这里。
 RULES_DIR = ".agent/rules"
 
 ENTRY_HEAD = re.compile(r"^##\s+(STD-[A-Z0-9-]+)\s*[·:：]\s*(.+?)\s*$")
 META_BLOCK = re.compile(r"<!--\s*meta\s*(.*?)-->", re.S)
 FM_BLOCK = re.compile(r"^---\r?\n(.*?)\r?\n---\r?\n?", re.S)
-DEFAULT_MAX_PAGE = 3
+
+# 快照 C 段的「什么时候去读它」——按维度给一句判据，而不是复述包名
+PACK_WHEN = {
+    "fe": "写前端代码、做前端设计时",
+    "be": "写后端代码、做接口与分层设计时",
+    "db": "写 SQL、建表改表、做数据库设计时",
+}
 
 
 class BuildError(Exception):
@@ -69,18 +78,16 @@ class BuildError(Exception):
 
 @dataclass
 class Entry:
+    """项目级条目。域级条目不进本结构——它们在阶段里按原文读。"""
     id: str
     title: str
-    layer: str
     source: str
     origin_file: str
     body: str = ""
-    tier: str = "indexed"
+    tier: str = "indexed"        # resident | indexed
     scope: str = ""
-    frozen: bool = False
-    conflicts_with: list[str] = field(default_factory=list)
-    status: str = "active"          # active | overridden | disabled | shadowed
-    note: str = ""                  # 裁决说明，写进快照 C 段
+    status: str = "active"       # active（保留字段，便于将来支持条目废弃）
+    note: str = ""
 
     def rule_line(self) -> str:
         """取条目正文中 **规则** 那一句，用于快照 A 段摘要。"""
@@ -92,6 +99,7 @@ class Entry:
 
 @dataclass
 class Pack:
+    """规范包。本编译器只用它的**声明**（选了哪些包、版本、状态），不读包内条目。"""
     pack_id: str
     key: str
     dimension: str
@@ -100,7 +108,6 @@ class Pack:
     prefix: str
     status: str
     path: Path
-    entries: list[Entry] = field(default_factory=list)
 
 
 # ── 基础工具 ────────────────────────────────────────────────
@@ -130,8 +137,8 @@ def md_cell(s) -> str:
       列一错位整段就不可信，且**不报任何错**。
     · **换行** —— 会在表格中间断开，后续行变成表格外的正文。
 
-    这个 bug 是真实发生过的：`db-gaussdb` 的 `STD-GAUSS-005` 标题里写了 `||`，
-    导致快照的 B 段索引表多出两列。事后靠一致性检查的 Markdown 结构校验才发现。
+    这个 bug 是真实发生过的：某个包的条目标题里写了 `||`，导致快照的 B 段索引表多出两列。
+    事后靠一致性检查的 Markdown 结构校验才发现。
     """
     return str(s).replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ").strip()
 
@@ -160,9 +167,14 @@ def split_fences(lines: list[str]) -> list[bool]:
     return flags
 
 
-# ── 条目解析 ────────────────────────────────────────────────
+# ── 条目解析（只用于项目级 rules）────────────────────────────
 
-def parse_entries(text: str, layer: str, source: str, origin_file: str) -> list[Entry]:
+def parse_entries(text: str, project: str, origin_file: str) -> list[Entry]:
+    """解析 `## STD-PRJ-…` 条目。
+
+    **只对项目级提炼产物调用。** 域级规范文件里的 `## STD-…` 标题现在是**段落锚点**
+    （供人引用与定位），不再被解析成条目——域级不使用条目机制。
+    """
     lines = text.split("\n")
     fenced = split_fences(lines)
 
@@ -190,25 +202,26 @@ def parse_entries(text: str, layer: str, source: str, origin_file: str) -> list[
                 meta[k.strip()] = v.strip()
             body = (body[:mm.start()] + body[mm.end():]).strip()
 
-        conflicts = [s.strip() for s in str(meta.get("conflicts_with", "")).split(",") if s.strip()]
         entries.append(Entry(
             id=entry_id,
             title=title,
-            layer=layer,
-            source=source,
+            source=project,
             origin_file=origin_file,
             body=body,
             tier=str(meta.get("tier", "indexed")).strip().lower(),
             scope=str(meta.get("scope", "")).strip(),
-            frozen=str(meta.get("frozen", "false")).strip().lower() == "true",
-            conflicts_with=conflicts,
         ))
     return entries
 
 
-# ── 包加载 ──────────────────────────────────────────────────
+# ── 包声明加载 ──────────────────────────────────────────────
 
 def load_pack(pack_dir: Path, dimension: str) -> Pack:
+    """只读 `PACK.md` 的声明，**不读包内条目文件的内容**。
+
+    `files` 列出的文件仍要存在（校验项 1）——它们是阶段加载时要去读的原文，
+    路径写错了会让人在对应阶段找不到规范，而那时已经离错误现场很远。
+    """
     pack_md = pack_dir / "PACK.md"
     if not pack_md.is_file():
         raise BuildError(f"包缺少 PACK.md：{pack_dir}")
@@ -220,12 +233,10 @@ def load_pack(pack_dir: Path, dimension: str) -> Pack:
     if not isinstance(meta.get("files"), list):
         raise BuildError(f"{pack_md} 的 `files` 必须是列表（可为空列表）")
 
-    entries: list[Entry] = []
     for fname in meta["files"]:
         fpath = pack_dir / fname
         if not fpath.is_file():
             raise BuildError(f"{pack_md} 中列出的条目文件不存在：{fpath}")
-        entries += parse_entries(read_text(fpath), dimension, str(meta["pack"]), fname)
 
     return Pack(
         pack_id=str(meta["pack"]),
@@ -236,7 +247,6 @@ def load_pack(pack_dir: Path, dimension: str) -> Pack:
         prefix=str(meta.get("prefix", "")),
         status=str(meta.get("status", "unknown")),
         path=pack_dir,
-        entries=entries,
     )
 
 
@@ -254,21 +264,6 @@ def discover_packs(root: Path) -> dict[str, Pack]:
                 raise BuildError(f"包 id 重复：{pack.pack_id}（{pack_dir}）")
             packs[pack.pack_id] = pack
     return packs
-
-
-def load_baseline(root: Path) -> list[Entry]:
-    """L0 基线 = 各业务域 standards/ 下的全部条目文件。"""
-    entries: list[Entry] = []
-    for domain in sorted(root.iterdir()):
-        if not domain.is_dir() or not re.match(r"^\d{2}_", domain.name):
-            continue
-        std = domain / "standards"
-        if not std.is_dir():
-            continue
-        for md in sorted(std.rglob("*.md")):
-            rel = f"{domain.name}/standards/{md.relative_to(std)}"
-            entries += parse_entries(read_text(md), "baseline", "baseline", rel)
-    return entries
 
 
 # ── manifest ────────────────────────────────────────────────
@@ -296,40 +291,28 @@ def parse_pin(value: str, where: str) -> tuple[str, str]:
 
 
 def resolve_packs(manifest: dict, packs: dict[str, Pack], project: str):
-    """按 manifest 选出技术栈包与领域包（领域包保持声明顺序=优先级）。"""
+    """按 manifest 选出技术栈包与领域包（领域包保持声明顺序=优先级）。
+
+    校验项 2：包必须存在，且**版本必须与 manifest 锁定的一致**——
+    包升级不会自动影响项目，升级要显式改 manifest。
+    """
     stacks, domains = [], []
     for key, value in (manifest.get("stacks") or {}).items():
         for item in (value if isinstance(value, list) else [value]):
             name, version = parse_pin(item, f"{project}.stacks.{key}")
+            pack = packs.get(name)
+            if pack is None:
+                raise BuildError(f"manifest 引用了不存在的技术栈包：{name}")
+            if pack.version != version:
+                raise BuildError(
+                    f"技术栈包版本不匹配：manifest 锁定 {name}@{version}，"
+                    f"包实际为 @{pack.version}（升级请改 manifest，不要改包）"
+                )
+            if pack.key != key:
+                raise BuildError(f"包 {name} 的 key={pack.key}，与 manifest 中使用的键 {key} 不一致")
             stacks.append((key, name, version))
     for item in (manifest.get("domains") or []):
         name, version = parse_pin(item, f"{project}.domains")
-        domains.append((name, version))
-    return stacks, domains
-
-
-# ── 合并 ────────────────────────────────────────────────────
-
-def merge(packs, stacks, domains, baseline_entries):
-    """按层级装配条目，返回 (entries_by_id, 顺序列表)。"""
-    ordered: list[Entry] = []
-    ordered += baseline_entries
-
-    domain_priority = {name: i for i, (name, _) in enumerate(domains)}
-    for key, name, version in stacks:
-        pack = packs.get(name)
-        if pack is None:
-            raise BuildError(f"manifest 引用了不存在的技术栈包：{name}")
-        if pack.version != version:
-            raise BuildError(
-                f"技术栈包版本不匹配：manifest 锁定 {name}@{version}，"
-                f"包实际为 @{pack.version}（升级请改 manifest，不要改包）"
-            )
-        if pack.key != key:
-            raise BuildError(f"包 {name} 的 key={pack.key}，与 manifest 中使用的键 {key} 不一致")
-        ordered += pack.entries
-
-    for name, version in domains:
         pack = packs.get(name)
         if pack is None:
             raise BuildError(f"manifest 引用了不存在的领域包：{name}")
@@ -337,43 +320,11 @@ def merge(packs, stacks, domains, baseline_entries):
             raise BuildError(
                 f"领域包版本不匹配：manifest 锁定 {name}@{version}，包实际为 @{pack.version}"
             )
-        ordered += pack.entries
+        domains.append((name, version))
+    return stacks, domains
 
-    by_id: dict[str, Entry] = {}
-    for entry in ordered:
-        if entry.id in by_id:
-            first = by_id[entry.id]
-            raise BuildError(
-                f"条目编号冲突：{entry.id}\n"
-                f"  首次出现：{first.source} / {first.origin_file}\n"
-                f"  再次出现：{entry.source} / {entry.origin_file}\n"
-                f"  编号必须全库唯一（见 命名与编号规范.md 第 5 节）"
-            )
-        by_id[entry.id] = entry
 
-    # 技术栈包前缀校验
-    for _, name, _ in stacks:
-        pack = packs[name]
-        if not pack.prefix:
-            continue
-        for entry in pack.entries:
-            if not entry.id.startswith(pack.prefix):
-                raise BuildError(
-                    f"条目前缀与包不一致：{entry.id} 出现在包 {pack.pack_id}"
-                    f"（该包前缀应为 {pack.prefix}）"
-                )
-    for name, _ in domains:
-        pack = packs[name]
-        if not pack.prefix:
-            continue
-        for entry in pack.entries:
-            if not entry.id.startswith(pack.prefix):
-                raise BuildError(
-                    f"条目前缀与包不一致：{entry.id} 出现在包 {pack.pack_id}"
-                    f"（该包前缀应为 {pack.prefix}）"
-                )
-    return by_id, domain_priority
-
+# ── 项目级条目 ──────────────────────────────────────────────
 
 def load_rules_files(root: Path, project: str) -> list[tuple[Path, dict, str]]:
     """读取 `<项目>/.agent/rules/*.md`，返回 [(路径, frontmatter, 正文)]。
@@ -398,8 +349,8 @@ def check_rules_drift(root: Path, project: str,
     改了而没重新提炼，快照就会悄悄停留在旧规则上——而且不报错，因为「少了一条约束」
     和「本来就没有这条约束」在快照里长得一模一样。
 
-    所以每条 rules 文件都记着「我提炼自哪个文件、当时它的哈希是多少」，
-    构建时比对。不一致不判失败（改文档是常态，判失败会逼人在改错别字时也重跑提炼），
+    所以每条 rules 文件都记着「我提炼自哪个文件、当时它的哈希是多少」，构建时比对。
+    不一致不判失败（改文档是常态，判失败会逼人在改错别字时也重跑提炼），
     但要**同时**写进 stderr 与快照正文——快照是 AI 运行时唯一会读的东西，
     告警只打在 stderr 上等于没有告警。
     """
@@ -412,11 +363,7 @@ def check_rules_drift(root: Path, project: str,
             continue
         recorded = str(fm.get("source_hash") or "").strip()
         src_path = proj_dir / src
-        item = {
-            "rules_file": f"{RULES_DIR}/{md.name}",
-            "source": src,
-            "recorded": recorded,
-        }
+        item = {"rules_file": f"{RULES_DIR}/{md.name}", "source": src, "recorded": recorded}
         if not src_path.exists():
             item["kind"] = "missing"
             item["actual"] = None
@@ -432,9 +379,8 @@ def check_rules_drift(root: Path, project: str,
     return drift
 
 
-def apply_project_entries(root: Path, project: str, manifest: dict,
-                          by_id: dict) -> tuple[list[Entry], list[dict]]:
-    """项目级条目，两个来源，都归 L3：
+def load_project_entries(root: Path, project: str, manifest: dict):
+    """项目级条目，两个来源，都归项目层：
 
     1. `manifest` 的 `project_only` —— 极少量、不值得单独成文的条目，直接内联在组合声明里
     2. `<项目>/.agent/rules/*.md` —— **主力路径**，由 `ai-spec-extract` 从项目根散文提炼
@@ -444,6 +390,8 @@ def apply_project_entries(root: Path, project: str, manifest: dict,
     要求散文里带 `## STD-PRJ-` 编号头，等于把机器格式硬塞进人写的东西里——
     要么人烦到不写，要么格式偷偷漂掉而构建安静地少算几条。
     分成两层：散文怎么改都行，提炼产物才是机器读的那一层，且有哈希可追溯。
+
+    校验项 3 / 4：项目级条目前缀必须正确，编号必须唯一。
     """
     added: list[Entry] = []
     prefix = f"STD-PRJ-{project.upper()}-"
@@ -459,18 +407,17 @@ def apply_project_entries(root: Path, project: str, manifest: dict,
         if ex:
             body_parts.append(f"**正例**：{ex.get('good', '')}\n\n**反例**：{ex.get('bad', '')}")
         added.append(Entry(
-            id=eid, title=str(item.get("category", "项目级条目")), layer="project",
+            id=eid, title=str(item.get("category", "项目级条目")),
             source=project, origin_file=".agent/project.yaml",
             body="\n\n".join(p for p in body_parts if p),
             tier=str(item.get("tier", "indexed")), scope=str(item.get("scope", "项目约束")),
-            frozen=bool(item.get("frozen", False)),
         ))
 
     rules = load_rules_files(root, project)
     drift = check_rules_drift(root, project, rules)
 
-    for md, fm, body in rules:
-        parsed = parse_entries(body, "project", project, f"{RULES_DIR}/{md.name}")
+    for md, _fm, body in rules:
+        parsed = parse_entries(body, project, f"{RULES_DIR}/{md.name}")
         for entry in parsed:
             if not entry.id.startswith(prefix):
                 raise BuildError(
@@ -481,14 +428,18 @@ def apply_project_entries(root: Path, project: str, manifest: dict,
                 )
         added += parsed
 
+    by_id: dict[str, Entry] = {}
     for entry in added:
         if entry.id in by_id:
+            first = by_id[entry.id]
             raise BuildError(
                 f"项目级条目编号重复：{entry.id}\n"
-                f"  已存在：{by_id[entry.id].source} / {by_id[entry.id].origin_file}"
+                f"  首次出现：{first.origin_file}\n"
+                f"  再次出现：{entry.origin_file}\n"
+                f"  编号一经启用不复用（见 命名与编号规范.md 第 5 节）"
             )
         by_id[entry.id] = entry
-    return added, drift
+    return list(by_id.values()), drift, rules
 
 
 def stray_project_entries(root: Path, project: str) -> list[str]:
@@ -508,98 +459,6 @@ def stray_project_entries(root: Path, project: str) -> list[str]:
     return hits
 
 
-def apply_overrides(manifest: dict, project: str, by_id: dict) -> list[dict]:
-    """执行 override / disable / append。frozen 条目一律拒绝。"""
-    records: list[dict] = []
-    for raw in (manifest.get("overrides") or []):
-        if not isinstance(raw, dict):
-            raise BuildError("overrides 的每一项必须是映射")
-        eid = str(raw.get("id", "")).strip()
-        action = str(raw.get("action", "")).strip()
-        reason = str(raw.get("reason", "")).strip()
-
-        if action not in ("override", "disable", "append"):
-            raise BuildError(f"override {eid}: action 必须是 override / disable / append")
-        entry = by_id.get(eid)
-        if entry is None:
-            raise BuildError(f"override 引用了不存在的条目：{eid}")
-        if not reason:
-            raise BuildError(f"override {eid}: `reason` 必填（半年后靠它判断这条覆盖还要不要留）")
-        if entry.frozen:
-            extra = ""
-            if action == "append":
-                extra = (
-                    "\n  注：append 同样被拒绝。追加内容可以实质架空原条目"
-                    "（例如追加「本项目例外：…」），因此 frozen 条目不接受"
-                    "任何形态的项目层修改。"
-                )
-            raise BuildError(
-                f"禁止对 frozen 条目执行 {action}：{eid}\n"
-                f"  frozen 表示不可协商（安全红线 / 编号体系 / 审计留痕）。"
-                f"确需修改走知识库 Owner 流程，而不是在项目层绕过。{extra}"
-            )
-
-        if action == "disable":
-            expires = raw.get("expires")
-            if not expires:
-                raise BuildError(f"disable {eid}: `expires` 必填（防止临时禁用变永久遗忘）")
-            if entry.layer in ("baseline", "domain", "stack"):
-                if not raw.get("approved_by"):
-                    raise BuildError(
-                        f"disable {eid}: 禁用「{LAYER_LABEL[entry.layer]}」条目需要 `approved_by`"
-                    )
-            entry.status = "disabled"
-            entry.note = f"本项目禁用（批准：{raw.get('approved_by', '—')}，到期 {expires}）：{reason}"
-        elif action == "override":
-            entry.status = "overridden"
-            entry.body = str(raw.get("content", "")).strip() or entry.body
-            entry.note = f"本项目覆盖：{reason}"
-        else:  # append
-            entry.body = (entry.body + "\n\n**本项目追加**：" + str(raw.get("content", "")).strip()).strip()
-            entry.status = "appended"
-            entry.note = f"本项目追加：{reason}"
-
-        records.append({"id": eid, "action": action, "layer": entry.layer, "reason": reason})
-
-    return records
-
-
-def resolve_conflicts(by_id: dict, domain_priority: dict) -> list[dict]:
-    """处理条目显式声明的 conflicts_with。
-
-    跨层冲突自动裁决（高层胜）；同层冲突要求 manifest 显式声明 domains 顺序，
-    否则构建失败 —— 不允许工具静默挑一个。
-    """
-    records: list[dict] = []
-    for entry in list(by_id.values()):
-        for other_id in entry.conflicts_with:
-            other = by_id.get(other_id)
-            if other is None or other.status == "disabled" or entry.status == "disabled":
-                continue
-            a, b = sorted([entry, other], key=lambda e: (LAYER_RANK[e.layer], e.id))
-            if a.id == b.id:
-                continue
-            if LAYER_RANK[a.layer] != LAYER_RANK[b.layer]:
-                winner, loser = b, a          # 高层胜
-                loser.status = "shadowed"
-                loser.note = f"被 {winner.id} 按层级规则覆盖（{LAYER_LABEL[a.layer]} < {LAYER_LABEL[b.layer]}）"
-                records.append({"winner": winner.id, "loser": loser.id, "rule": "层级优先"})
-                continue
-            # 同层冲突：必须由 manifest 的 domains 顺序裁决
-            pa, pb = domain_priority.get(a.source), domain_priority.get(b.source)
-            if pa is None or pb is None or pa == pb:
-                raise BuildError(
-                    f"同层条目冲突且无法裁决：{a.id}（{a.source}）与 {b.id}（{b.source}）\n"
-                    f"  处理方式：在 project.yaml 的 domains 中显式声明两者的先后顺序。\n"
-                    f"  不允许工具静默挑选 —— 静默裁决会产生无人能追溯的隐性债务。"
-                )
-            winner, loser = (a, b) if pa < pb else (b, a)
-            loser.status = "shadowed"
-            loser.note = f"被 {winner.id} 覆盖（{winner.source} 优先级高于 {loser.source}）"
-            records.append({"winner": winner.id, "loser": loser.id, "rule": "领域包优先级"})
-    return records
-
-
 # ── 输出 ────────────────────────────────────────────────────
 
 def manifest_fingerprint(manifest: dict) -> str:
@@ -608,14 +467,14 @@ def manifest_fingerprint(manifest: dict) -> str:
     **不能用整个文件的哈希。** 那会把与规范无关的东西一起算进去：仓库路径、模块码、
     负责人、注释、空行。实测过一次：只在 manifest 里加了一行 `prototype_repo`
     （一个仓库路径，不是规范），快照哈希就从 `27a602e2…` 变成 `873ad184…`，
-    而生效的 67 条规范**一条都没变**。
+    而生效的规范**一条都没变**。
 
     后果很具体：批次状态文件记录的 `spec_snapshot.hash` 会无缘无故对不上，
     让人以为"规范被人改了"——而回答"这个批次当时用的是哪版规范"恰恰是这个哈希存在的唯一理由。
     一个会因无关改动而报警的哈希，等于不会报警。
 
-    只取四样东西：**选了什么包（stacks/domains）、做了什么覆盖（overrides）、
-    有哪些项目特有条目（project_only）**。条目的最终内容另有 `entries` 参与哈希，两者互补。
+    只取三样：**选了什么包（stacks/domains）、有哪些项目级条目（project_only）**。
+    提炼产物的内容另有 `entries` 参与哈希，两者互补。
     """
     def _norm(v):
         if isinstance(v, list):
@@ -627,119 +486,108 @@ def manifest_fingerprint(manifest: dict) -> str:
     payload = {
         "stacks": _norm(manifest.get("stacks") or {}),
         "domains": _norm(manifest.get("domains") or []),
-        "overrides": _norm(manifest.get("overrides") or []),
         "project_only": _norm([(o or {}).get("id")
                                for o in (manifest.get("project_only") or [])]),
     }
     return sha256_of(json.dumps(payload, ensure_ascii=False, sort_keys=True))
 
 
-def compute_snapshot_hash(manifest_fp: str, entries: list) -> str:
+def compute_snapshot_hash(manifest_fp: str, entries: list[Entry]) -> str:
     """快照哈希 —— 内容寻址，不是文件字节哈希。
 
-    由「manifest 指纹（只含规范相关字段）+ 每条目的 id/层级/状态/正文哈希」算出，
-    因此和输出格式无关：调整段落版式不会让它变，改一条规范就会让它变，
+    由「manifest 指纹（只含规范相关字段）+ 每条目的 id/正文哈希」算出，
+    因此和输出格式无关：调整段落版式不会让它变，改一条条目就会让它变，
     **而与规范无关的改动（仓库路径、模块码、注释）也不会让它变**。
     这正是「这个批次用的是哪版规范」需要的性质。
     """
     parts = [manifest_fp]
-    for e in sorted(entries, key=lambda x: (LAYER_RANK[x.layer], x.id)):
-        parts.append(f"{e.id}|{e.layer}|{e.status}|{e.tier}|{e.frozen}|{sha256_of(e.body)}")
+    for e in sorted(entries, key=lambda x: x.id):
+        parts.append(f"{e.id}|{e.tier}|{sha256_of(e.body)}")
     return sha256_of("\n".join(parts))
 
 
 def build_snapshot_md(project: str, manifest: dict, packs, stacks, domains,
-                      entries: list[Entry], overrides, conflicts, manifest_hash,
-                      drift: list[dict] | None = None,
-                      rules_index: list[dict] | None = None) -> str:
-    drift = drift or []
-    rules_index = rules_index or []
-    active = [e for e in entries if e.status in ("active", "appended", "overridden")]
-    resident = [e for e in active if e.tier == "resident"]
-    indexed = [e for e in active if e.tier != "resident"]
-    changed = [e for e in entries if e.status in ("overridden", "appended", "disabled", "shadowed")]
+                      entries: list[Entry], drift: list[dict],
+                      rules_index: list[dict]) -> str:
+    resident = sorted((e for e in entries if e.tier == "resident"), key=lambda x: x.id)
+    indexed = sorted((e for e in entries if e.tier != "resident"), key=lambda x: x.id)
 
     now = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M %z")
     out: list[str] = []
-    out.append(f"# 生效规范快照 · {project}\n")
-    out.append(f"> 生成时间：{now}　｜　manifest hash：{manifest_hash}")
-    out.append(f"> 快照哈希：{compute_snapshot_hash(manifest_fingerprint(manifest), entries)}　（批次状态文件 `spec_snapshot.hash` 填这个值）")
-    out.append("> **本文件由 ai-spec-build 生成，请勿手工编辑**——下次构建会覆盖。要改规范请改包或 manifest。\n")
+    out.append(f"# 项目规范底座 · {project}\n")
+    out.append(f"> 生成时间：{now}　｜　组合声明指纹：{manifest_fingerprint(manifest)}")
+    out.append(f"> 快照哈希：{compute_snapshot_hash(manifest_fingerprint(manifest), entries)}"
+               f"　（批次状态文件 `spec_snapshot.hash` 填这个值）")
+    out.append("> **本文件由 ai-spec-build 生成，请勿手工编辑**——下次构建会覆盖。\n")
 
-    counts: dict[str, int] = {}
-    for e in active:
-        counts[e.layer] = counts.get(e.layer, 0) + 1
-    summary = "　/　".join(f"{LAYER_LABEL[k]} {v}" for k, v in sorted(counts.items(), key=lambda kv: LAYER_RANK[kv[0]]))
-    out.append(f"生效条目 **{len(active)}** 条（{summary}）；另有 {len(changed)} 条被覆盖或禁用。\n")
+    out.append("> ## ⚠️ 本快照只装项目级内容")
+    out.append(">")
+    out.append("> 团队基线（各域 `standards/`）与技术栈包（`09_资产库/规范包/`）的规范"
+               "**不在本文件里**。")
+    out.append("> 它们是**域级内容**，到对应阶段按各域 `README.md` 的「本阶段约束」表读取原文。")
+    out.append(">")
+    out.append("> 理由：域级规范随阶段按需加载就够；只有**项目级**内容需要在这里编译一次，")
+    out.append("> 避免每个阶段都把项目根的散文重读一遍。")
+    out.append("> **C 段列出了本项目声明了哪些包——那是去读包原文的指针。**\n")
+    out.append(f"本项目级条目 **{len(entries)}** 条（常驻 {len(resident)} / 按需 {len(indexed)}）。\n")
 
     # 漂移告警必须写在**快照正文**里，不能只打 stderr：
     # 快照是 AI 运行时唯一会读的东西，而「少了一条约束」与「本来就没这条」在快照里长得一样，
     # 只有这行告警能把两者区分开。
     if drift:
-        out.append("> ## ⚠️ 项目级条目可能已过期\n>")
-        out.append(f"> 下列提炼文件的**源文档已变更**，条目尚未重新提炼。"
-                   f"当前快照里的项目级约束可能缺条或过时——**不要假定它完整**。\n>")
+        out.append("> ## ⚠️ 项目级条目可能已过期")
+        out.append(">")
+        out.append("> 下列提炼文件的**源文档已变更**，条目尚未重新提炼。"
+                   "当前快照里的项目级约束可能缺条或过时——**不要假定它完整**。\n>")
         out.append("> | 提炼文件 | 源文档 | 情况 |")
         out.append("> |---|---|---|")
         for d in drift:
             why = "源文档已变更" if d["kind"] == "changed" else "源文档不存在"
             out.append(f"> | `{md_cell(d['rules_file'])}` | `{md_cell(d['source'])}` | {why} |")
         out.append(">")
-        out.append("> 处理：调用 `ai-spec-extract` 重新提炼，然后重跑 `ai-spec-build`。\n")
+        out.append("> 处理：调用 `ai-spec-extract` 重新提炼，然后重跑本构建。\n")
 
-    out.append("## A. 常驻注入\n")
-    out.append(f"_（{len(resident)} 条，预算 ≤{A_SECTION_BUDGET_LINES} 行。这 {len(resident)} 条是"
-               "「不看就会做错」的规则，应注入项目 CLAUDE.md 常驻。）_\n")
+    out.append("## A. 项目级常驻注入\n")
+    out.append(f"_（{len(resident)} 条，预算 ≤{A_SECTION_BUDGET_LINES} 行。本项目独有的、"
+               "**不看就会做错**的规则；应注入批次 `CLAUDE.md` 常驻。）_\n")
     if not resident:
         out.append("_（无）_\n")
-    for e in sorted(resident, key=lambda x: (LAYER_RANK[x.layer], x.id)):
-        tag = {"overridden": " ← 已覆盖", "appended": " ← 本项目追加"}.get(e.status, "")
-        src = "项目特有" if e.layer == "project" else e.source
-        out.append(f"- **[{e.id}]** {e.title}（{src}）{tag}")
+    for e in resident:
+        out.append(f"- **[{e.id}]** {e.title}")
         line = e.rule_line()
         if line:
             out.append(f"  - {line}")
     out.append("")
 
-    out.append("## B. 按需检索索引\n")
-    out.append("_（其余条目。执行到具体任务时按「触发场景」读取条目原文，不要全量读。）_\n")
+    out.append("## B. 项目级按需索引\n")
+    out.append("_（其余项目级条目。执行到具体任务时按「触发场景」读取条目原文，不要全量读。）_\n")
     out.append("| 条目 ID | 摘要 | 来源 | 触发场景 |")
     out.append("|---|---|---|---|")
-    for e in sorted(indexed, key=lambda x: (LAYER_RANK[x.layer], x.id)):
-        src = "项目特有" if e.layer == "project" else e.source
-        out.append(f"| `{e.id}` | {md_cell(e.title)} | {md_cell(src)} | {md_cell(e.scope or '—')} |")
+    for e in indexed:
+        out.append(f"| `{e.id}` | {md_cell(e.title)} | {md_cell(e.origin_file)} | "
+                   f"{md_cell(e.scope or '—')} |")
     out.append("")
 
-    out.append("## C. 来源链与裁决记录\n")
-    out.append("_（审计用。回答「这条规则为什么是现在这个样子」。）_\n")
-    if changed:
-        out.append("| 条目 ID | 处置 | 来源 | 说明 |")
-        out.append("|---|---|---|---|")
-        for e in sorted(changed, key=lambda x: (LAYER_RANK[x.layer], x.id)):
-            note = re.sub(r"\s+", " ", e.note).strip()
-            out.append(f"| `{e.id}` | {e.status} | {md_cell(e.source)} | {md_cell(note)} |")
-        out.append("")
-    else:
-        out.append("_（本次构建无覆盖、无追加、无禁用、无冲突裁决）_\n")
-
-    out.append("## D. 项目声明摘要\n")
-    out.append("| 维度 | 包 | 版本 | 状态 |")
-    out.append("|---|---|---|---|")
+    out.append("## C. 项目声明：本项目选了哪些包\n")
+    out.append("_（**这一段的用途是「指路」，不是「给规则」**——快照不含包内条目，"
+               "按上表到对应阶段去读包原文。）_\n")
+    out.append("| 维度 | 包 | 版本 | 包状态 | 什么时候去读它 |")
+    out.append("|---|---|---|---|---|")
     for key, name, version in stacks:
-        out.append(f"| `{key}` | {md_cell(name)} | {version} | {packs[name].status} |")
+        out.append(f"| `{key}` | {md_cell(name)} | {version} | {packs[name].status} | "
+                   f"{md_cell(PACK_WHEN.get(key, '用到该技术栈时'))} |")
     for name, version in domains:
-        out.append(f"| domain | {md_cell(name)} | {version} | {packs[name].status} |")
+        out.append(f"| `domain` | {md_cell(name)} | {version} | {packs[name].status} | "
+                   f"涉及该领域决策时 |")
     out.append("")
     out.append(f"- 领域包优先级（高 → 低）：{' > '.join(n for n, _ in domains) or '（无）'}")
-    out.append(f"- 项目特有条目数：{counts.get('project', 0)}")
-    if counts.get("project", 0) > MAX_PROJECT_ONLY_ITEMS:
-        out.append(f"  - ⚠️ 超过 {MAX_PROJECT_ONLY_ITEMS} 条阈值：可能说明该项目的共性还没被抽象成包，"
-                   "运行 `ai-spec-promote` 分析候选。")
-    out.append("")
+    out.append("- 包原文位置：知识库根下 `09_资产库/规范包/stacks/<包>/` 与 `.../domains/<包>/`\n")
 
-    out.append("### D.2 项目级条目的来源\n")
-    if not rules_index:
-        out.append("_（本项目没有 `.agent/rules/` 提炼文件；项目级条目仅来自组合声明的内联 `project_only`。）_\n")
+    out.append("## D. 项目级条目的来源\n")
+    if not rules_index and not entries:
+        out.append("_（本项目没有项目级条目。）_\n")
+    elif not rules_index:
+        out.append("_（项目级条目全部来自 manifest 的内联 `project_only`，无提炼文件。）_\n")
     else:
         drift_by_file = {d["rules_file"]: d for d in drift}
         out.append("| 提炼文件 | 条目数 | 源文档 | 来源状态 |")
@@ -761,34 +609,28 @@ def build_snapshot_md(project: str, manifest: dict, packs, stacks, domains,
 
 
 def build_snapshot_json(project, manifest, packs, stacks, domains, entries,
-                        overrides, conflicts, manifest_hash,
-                        drift: list[dict] | None = None,
-                        rules_index: list[dict] | None = None) -> str:
+                        drift: list[dict], rules_index: list[dict]) -> str:
     doc = {
         "project": project,
-        "manifest_hash": manifest_hash,
+        "scope": "project-only",
+        "manifest_hash": manifest_fingerprint(manifest),
         "snapshot_hash": compute_snapshot_hash(manifest_fingerprint(manifest), entries),
         "built_at": datetime.now(timezone.utc).astimezone().isoformat(),
-        "packs": ([{"dimension": "stack", "key": k, "pack": n, "version": v, "status": packs[n].status}
-                   for k, n, v in stacks]
-                  + [{"dimension": "domain", "pack": n, "version": v, "status": packs[n].status}
-                     for n, v in domains]),
+        "packs": ([{"dimension": "stack", "key": k, "pack": n, "version": v,
+                    "status": packs[n].status} for k, n, v in stacks]
+                  + [{"dimension": "domain", "pack": n, "version": v,
+                      "status": packs[n].status} for n, v in domains]),
         "domain_priority": [n for n, _ in domains],
         # 漂移**不进** snapshot_hash：hash 是「规范内容的指纹」，
         # 而漂移是「派生副本可能过期」的状态——两者混在一处，
         # 「这个批次用的是哪版规范」就会被一个与规范内容无关的字段搅浑。
-        "rules_drift": drift or [],
-        "rules_index": rules_index or [],
-        "overrides": overrides,
-        "conflict_resolutions": conflicts,
+        "rules_drift": drift,
+        "rules_index": rules_index,
         "entries": [
-            {
-                "id": e.id, "title": e.title, "layer": e.layer,
-                "layer_label": LAYER_LABEL[e.layer], "source": e.source,
-                "origin_file": e.origin_file, "tier": e.tier, "scope": e.scope,
-                "frozen": e.frozen, "status": e.status, "note": e.note,
-            }
-            for e in sorted(entries, key=lambda x: (LAYER_RANK[x.layer], x.id))
+            {"id": e.id, "title": e.title, "source": e.source,
+             "origin_file": e.origin_file, "tier": e.tier, "scope": e.scope,
+             "status": e.status, "note": e.note}
+            for e in sorted(entries, key=lambda x: x.id)
         ],
     }
     return json.dumps(doc, ensure_ascii=False, indent=2)
@@ -798,37 +640,25 @@ def build_snapshot_json(project, manifest, packs, stacks, domains, entries,
 
 def build_one(root: Path, packs: dict, project: str, check_only: bool, verbose: bool) -> int:
     manifest = load_manifest(root, project)
-    manifest_hash = sha256_of(read_text(root / "projects" / project / ".agent" / "project.yaml"))
-
     stacks, domains = resolve_packs(manifest, packs, project)
-    baseline = load_baseline(root)
+    entries, drift, rules = load_project_entries(root, project, manifest)
 
-    by_id, domain_priority = merge(packs, stacks, domains, baseline)
-    added_project, drift = apply_project_entries(root, project, manifest, by_id)
-    overrides = apply_overrides(manifest, project, by_id)
-    conflicts = resolve_conflicts(by_id, domain_priority)
-
-    # 每个 rules 文件的条目数与来源，用于快照的 D.2 来源表
-    rules = load_rules_files(root, project)
-    project_entry_count: dict[str, int] = {}
-    for e in added_project:
-        project_entry_count[e.origin_file] = project_entry_count.get(e.origin_file, 0) + 1
+    # 每个 rules 文件的条目数与来源，用于快照的 D 段来源表
+    per_file: dict[str, int] = {}
+    for e in entries:
+        per_file[e.origin_file] = per_file.get(e.origin_file, 0) + 1
     rules_index = [{
         "rules_file": f"{RULES_DIR}/{md.name}",
         "source": str(fm.get("source") or "").strip(),
         "source_hash": str(fm.get("source_hash") or "").strip(),
-        "count": project_entry_count.get(f"{RULES_DIR}/{md.name}", 0),
+        "count": per_file.get(f"{RULES_DIR}/{md.name}", 0),
     } for md, fm, _body in rules]
 
-    entries = list(by_id.values())
-    md = build_snapshot_md(project, manifest, packs, stacks, domains, entries,
-                           overrides, conflicts, manifest_hash, drift, rules_index)
-    js = build_snapshot_json(project, manifest, packs, stacks, domains, entries,
-                             overrides, conflicts, manifest_hash, drift, rules_index)
+    md = build_snapshot_md(project, manifest, packs, stacks, domains, entries, drift, rules_index)
+    js = build_snapshot_json(project, manifest, packs, stacks, domains, entries, drift, rules_index)
 
     # A 段预算检查
-    a_lines = 0
-    in_a = False
+    a_lines, in_a = 0, False
     for line in md.split("\n"):
         if line.startswith("## A."):
             in_a = True
@@ -853,12 +683,10 @@ def build_one(root: Path, packs: dict, project: str, check_only: bool, verbose: 
 
     stray = stray_project_entries(root, project)
 
-    active = [e for e in entries if e.status in ("active", "appended", "overridden")]
     if not check_only:
         # 快照与日志都落在**项目目录**下（projects/<项目码>/.agent/）——它们是项目数据：
-        # 内容带该项目的规范组合结果，且可由 manifest + 规范包完整重建。
-        # 放在顶层会让多个项目的快照混在一处，也让"00~09 是通用资产"这条红线自相矛盾
-        # （顶层曾有过一个 .agent/，已删除）。
+        # 内容带该项目的规范组合结果，且可由 manifest + 提炼产物重建。
+        # 放在顶层会让多个项目的快照混在一处，也让"00~09 是通用资产"这条红线自相矛盾。
         proj_ai = root / "projects" / project / ".agent"
         out_dir = proj_ai / "spec-effective"
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -866,25 +694,23 @@ def build_one(root: Path, packs: dict, project: str, check_only: bool, verbose: 
         (out_dir / f"{project}.json").write_text(js, encoding="utf-8")
         log = {
             "at": datetime.now(timezone.utc).astimezone().isoformat(),
-            "project": project, "entries": len(active),
-            "manifest_hash": manifest_hash,
+            "project": project,
+            "entries": len(entries),
+            "manifest_hash": manifest_fingerprint(manifest),
             "snapshot_hash": compute_snapshot_hash(manifest_fingerprint(manifest), entries),
-            "overrides": len(overrides), "conflicts": len(conflicts),
         }
         logs = proj_ai / "logs" / "spec-build.jsonl"
         logs.parent.mkdir(parents=True, exist_ok=True)
         with logs.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(log, ensure_ascii=False) + "\n")
 
-    print(f"✅ {project}：生效 {len(active)} 条"
-          f"（常驻 {sum(1 for e in active if e.tier == 'resident')}）"
-          f"，覆盖/禁用 {len(overrides)} 条"
-          f"{'，冲突裁决 ' + str(len(conflicts)) + ' 条' if conflicts else ''}"
+    resident = sum(1 for e in entries if e.tier == "resident")
+    print(f"✅ {project}：项目级条目 {len(entries)} 条（常驻 {resident}）"
           f"{'  [--check，未写文件]' if check_only else ''}")
     if stray:
         sys.stderr.write(
             f"⚠️  {project}：项目根的文档里有 {len(stray)} 处形如条目头的行，但**不会被解析**。\n"
-            f"    项目级条目现在只从 {RULES_DIR}/ 读——那是机器面，项目根是给人的散文。\n"
+            f"    项目级条目只从 {RULES_DIR}/ 读——那是机器面，项目根是给人的散文。\n"
             f"    处理：调用 ai-spec-extract 把约束提炼进 rules，然后把散文里那行改成普通的标题或段落。\n"
         )
         for s in stray:
@@ -898,7 +724,7 @@ def build_one(root: Path, packs: dict, project: str, check_only: bool, verbose: 
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="ai-spec-build · 规范编译器")
+    ap = argparse.ArgumentParser(description="ai-spec-build · 项目规范底座编译器")
     ap.add_argument("--project", help="项目码（projects/ 下的目录名）")
     ap.add_argument("--all", action="store_true", help="编译 projects/ 下全部项目")
     ap.add_argument("--check", action="store_true", help="只校验，不写文件")
@@ -916,9 +742,9 @@ def main() -> int:
                 print(f"\n【{layer}】")
                 for p in sorted((v for v in packs.values() if v.dimension == sub),
                                 key=lambda x: x.pack_id):
-                    print(f"  {p.pack_id:<26} @{p.version:<8} {p.status:<9} "
-                          f"{len(p.entries):>3} 条  {p.title}")
-            print()
+                    print(f"  {p.pack_id:<26} @{p.version:<8} {p.status:<9} {p.title}")
+            print("\n（包内条目不进快照——到对应阶段按包原文读。"
+                  "条目本身在 `PACK.md` 的 `files` 列出的文件里。）\n")
             return 0
 
         if args.all:

@@ -4,12 +4,6 @@
 
 ## STD-DM8-001 · CLOB 字段必须用 `DBMS_LOB.SUBSTR` 读取
 
-<!-- meta
-tier: resident
-scope: 涉及 CLOB 的查询
-frozen: false
--->
-
 **规则**：读取 CLOB 类型字段时，SQL 中必须用 `DBMS_LOB.SUBSTR(col, 长度, 起始位置)` 转换，不得直接 `SELECT col`。
 
 **正例**：
@@ -27,12 +21,6 @@ WHERE id = '123';
 
 ## STD-DM8-002 · 空串与 NULL 不等价，断言前必须先验证
 
-<!-- meta
-tier: resident
-scope: 数据校验与断言
-frozen: false
--->
-
 **规则**：达梦默认空串**不同于** NULL。写 `= ''` 或 `IS NULL` 之前，必须先查一次实际数据确认该字段的空值形态。
 
 **正例**：先分别执行 `… WHERE col IS NULL` 与 `… WHERE col = ''` 各查一次，看清分布再写断言。
@@ -44,12 +32,6 @@ frozen: false
 ---
 
 ## STD-DM8-003 · 无表查询使用 `FROM DUAL`
-
-<!-- meta
-tier: indexed
-scope: 连通性检查与常量查询
-frozen: false
--->
 
 **规则**：不依赖具体表的查询必须带 `FROM DUAL`。
 
@@ -63,12 +45,6 @@ frozen: false
 
 ## STD-DM8-004 · 字符串拼接用 `||`，不用 `CONCAT`
 
-<!-- meta
-tier: indexed
-scope: SQL 表达式
-frozen: false
--->
-
 **规则**：字符串拼接使用 `||` 运算符。`CONCAT` 在达梦中仅接受两个参数，多参拼接会报错。
 
 **正例**：`SELECT a || '-' || b FROM t`
@@ -80,12 +56,6 @@ frozen: false
 ---
 
 ## STD-DM8-005 · 表名、模式名、列名按大写查找
-
-<!-- meta
-tier: indexed
-scope: 元数据查询
-frozen: false
--->
 
 **规则**：通过 `ALL_TABLES` / `ALL_TAB_COLUMNS` 查元数据时，`OWNER` 与 `TABLE_NAME` 一般需要大写；比较条件用 `UPPER()` 包装。
 
@@ -102,12 +72,6 @@ WHERE OWNER = 'MYSCHEMA' AND TABLE_NAME = 'SOME_TABLE' ORDER BY COLUMN_ID;
 ---
 
 ## STD-DM8-006 · 定位真实表名时必须排除备份表
-
-<!-- meta
-tier: resident
-scope: 表定位
-frozen: false
--->
 
 **规则**：生产库中常存在大量历史备份表（`xxx_bak_yyMMdd`、`xxx-序号` 等）。按关键词找表后，必须优先选**无日期后缀、无连字符后缀**的正表；只有正表查不到时才逐个核对备份表。
 

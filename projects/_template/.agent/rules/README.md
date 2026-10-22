@@ -35,7 +35,6 @@ extracted_by: ai-spec-extract
 <!-- meta
 tier: resident          # resident = 常驻注入；indexed = 按需检索
 scope: <触发场景>        # 做什么事的时候会用到这条
-frozen: false
 -->
 
 <照抄自散文的规则正文>

@@ -11,12 +11,6 @@
 
 ## STD-GAUSS-001 · 标识符默认折叠为小写，不要指望大写查找
 
-<!-- meta
-tier: resident
-scope: 所有 SQL 与元数据查询
-frozen: false
--->
-
 **规则**：PostgreSQL 会把**未加引号**的标识符折叠为小写。写表名、列名一律用小写蛇形，不要加双引号。
 
 **正例**：`SELECT * FROM biz_order_relation WHERE order_no = ?`
@@ -33,12 +27,6 @@ frozen: false
 ---
 
 ## STD-GAUSS-002 · 空串是真实值，不等于 NULL
-
-<!-- meta
-tier: resident
-scope: 数据校验、条件查询、断言
-frozen: false
--->
 
 **规则**：`''` 与 `NULL` 是两个不同的值，必须分别判断。涉及可空字段的校验，`IS NULL` 与 `= ''` 都要写。
 
@@ -60,12 +48,6 @@ SELECT count(*) FROM biz_order WHERE order_no = '';      -- 空串
 
 ## STD-GAUSS-003 · 没有 `DUAL`，无表查询直接 `SELECT`
 
-<!-- meta
-tier: indexed
-scope: 连通性检查与常量查询
-frozen: false
--->
-
 **规则**：不依赖具体表的查询直接写 `SELECT <表达式>`，**不要** `FROM DUAL`。
 
 **正例**：`SELECT 1 AS ok`
@@ -78,12 +60,6 @@ frozen: false
 ---
 
 ## STD-GAUSS-004 · 分页用 `LIMIT` / `OFFSET`，没有 `ROWNUM`
-
-<!-- meta
-tier: indexed
-scope: 分页查询
-frozen: false
--->
 
 **规则**：分页写 `... ORDER BY <唯一键> LIMIT n OFFSET m`。不要用 `ROWNUM`，也不要依赖"无序分页"。
 
@@ -98,12 +74,6 @@ frozen: false
 ---
 
 ## STD-GAUSS-005 · `concat()` 与 `||` 对 NULL 的处理不同，可空字段上要选对
-
-<!-- meta
-tier: indexed
-scope: 字符串拼接、动态 like 条件
-frozen: false
--->
 
 **规则**：`concat()` 接受任意个参数且**把 NULL 当空串**；`||` 只要有一个操作数是 NULL，
 **整个结果就是 NULL**。拼接可空字段时必须明确选哪一个。
@@ -126,12 +96,6 @@ AND order_no LIKE CONCAT('%', #{orderNo}, '%')
 
 ## STD-GAUSS-006 · 跨 schema 必须显式限定，不要依赖 `search_path`
 
-<!-- meta
-tier: indexed
-scope: 访问非默认 schema 的对象
-frozen: false
--->
-
 **规则**：引用默认 schema 之外的对象时，一律写全 `<schema>.<object>`。
 不要因为"当前连接配了 `currentSchema`"就省略。
 
@@ -146,12 +110,6 @@ frozen: false
 ---
 
 ## STD-GAUSS-007 · 字段注释用独立的 `COMMENT ON` 语句
-
-<!-- meta
-tier: indexed
-scope: DDL 编写
-frozen: false
--->
 
 **规则**：PostgreSQL 不支持 `CREATE TABLE` 里的内联 `COMMENT`。字段说明必须写成独立的
 `COMMENT ON COLUMN <schema>.<table>.<column> IS '…'`。

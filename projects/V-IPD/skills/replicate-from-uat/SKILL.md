@@ -27,7 +27,7 @@ description: 一比一复刻现系统（UAT）页面的标准工作流。重构�
 
 ### 第 2 步：UAT 实测（再看真实页面）
 
-UAT：`https://core-test.voyah.cn/`（账号 pms，口令见密码保险柜；**只读，禁止增删改数据**；UAT 偶发服务不可用，先刷新重试）
+UAT：`https://core-test.voyah.cn/`（账号 pms/123456；**只读，禁止增删改数据**；UAT 偶发服务不可用，先刷新重试）
 
 1. **DOM 结构**：浏览器 domSnapshot，拿到可访问性树（元素层级/role/name）
 2. **计算样式**（比截图更精确）：`getComputedStyle` 逐元素提取关键属性——布局（宽高/定位/padding/margin）、颜色、字体、圆角、阴影、层级。样例代码：

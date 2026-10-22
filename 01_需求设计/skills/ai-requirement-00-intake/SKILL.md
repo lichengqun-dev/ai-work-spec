@@ -1,19 +1,31 @@
 ---
 name: ai-requirement-00-intake
 description: 判定一个新需求走新建/续做/变更哪条路径，并创建批次状态文件。当有新需求进来、不确定该走哪条流程时使用。
-version: 1.0.0
-stage: 01_需求设计
-owner: 待指定
-updated: 2026-10-19
-applicable_stacks: []
-status: implemented
+metadata:
+  updated: 2026-10-22   # 格式迁移日（内容未改）
+  version: 1.0.0
+  stage: 01_需求设计
+  owner: 待指定
+  applicable_stacks: []
+  status: implemented
+  model_tier: small
 ---
 
-# 能力声明
+<!-- deps: references/INDEX.md -->
+
+# ai-requirement-00-intake · 批次入口判定
+
+## 能力声明
 
 判定一个新进来的需求该走哪条流程（新建 / 续做 / 变更），并创建或恢复批次状态文件。
 
 **不产出任何业务文档。** 它只做一件事：把"来了个需求"变成"有了一个批次，走哪条路"。
+
+## 何时用 / 何时不用
+
+- **用**：有新需求进来、不确定该走新建 / 续做 / 变更哪条路径时；人工介入或恢复一个批次前，先确认批次状态
+- **不用**：看起来是小改动 / 工单的需求——**不要因为"看起来是个小需求"就跳过批次创建**。
+  小需求走快车道是 `ai-daily-01-fastlane` 的职责，由它来判定，不是在这里简化流程
 
 ## 输入契约
 
@@ -29,25 +41,47 @@ status: implemented
 
 | 产出 | 路径 | 格式 |
 |---|---|---|
-| 批次状态文件 | `projects/<项目码>/.agent/state/<批次号>.yaml` | 按 `projects/_template/.agent/state/_模板.yaml` |
+| 批次状态文件 | `projects/<项目码>/.agent/state/<批次号>.yaml` | 按 `projects/_template/.agent/state/_模板.yaml`（**含该模板标注为必填的段**） |
 | 判定结论 | 输出给用户 | 路径类型 + 理由 + 下一步 |
 
-## 前置条件（不满足则拒绝执行）
+本 Skill 负责填写的部分：
+
+```yaml
+batch: <批次号>
+project: <项目码>
+type: new | resume | change
+created: <ISO8601 带时区>
+owner: <批次负责人>
+current_step: <该路径的第一步>
+spec_snapshot:
+  hash: <取 spec-effective/<项目码>.json 的 snapshot_hash>
+steps: <按路径类型填，见「执行步骤」>
+```
+
+## 前置条件
+
+**hard（不满足则拒绝执行）**
 
 - `projects/<项目码>/.agent/project.yaml` 存在且可解析
 - `projects/<项目码>/.agent/spec-effective/<项目码>.md` 存在（规范快照未生成时拒绝，避免在无规范状态下开工）
 - 需求描述可判断归属项目（判断不了则先澄清，不要猜）
 
+**soft（不满足则提示，可继续）**
+
+- 无。本 Skill 是需求段的第一步，没有上游阶段或门禁；历史批次状态属于**输入**（走续做 / 变更分支），
+  不构成前置
+
 ## 执行步骤
 
 1. 确认项目码；无法确认则向用户澄清，**不猜**
-2. 扫描 `projects/<项目码>/.agent/state/` 中该项目的历史批次
-3. 按下表判定路径类型
-4. 生成批次号 `<项目码大写>-<YYYYMMDD>-<三位序号>`
-5. 写入批次状态文件（`steps` 填本路径要走的具体步骤）
+2. **先读再判**：读 `projects/<项目码>/.agent/state/` 下该项目的全部批次文件（文件名即批次号），
+   以及 `projects/<项目码>/.agent/project.yaml`。**不要凭对话上下文猜**——用户可能记错了上次做到哪一步
+3. 按下表判定路径类型；判不准时**问用户**，不要选一个默认值继续
+4. 生成批次号 `<项目码大写>-<YYYYMMDD>-<三位序号>`（序号取该项目当日的已有批次数 +1，写入前确认文件不存在）
+5. 复制 `projects/_template/.agent/state/_模板.yaml` 写入批次状态文件（填写要点见下）
 6. 输出判定结论与理由
 
-## 路径判定规则
+### 路径判定规则
 
 | 条件 | 判定 | 理由 |
 |---|---|---|
@@ -56,14 +90,43 @@ status: implemented
 | 存在已归档批次，本次是改行为 | **变更（change）** | 开 `<原批次号>-C<n>` 子批次，原批次保持不可变 |
 | 存在已归档批次，本次是加功能 | **新建（new）** | 新增功能是独立批次，不挂在历史批次下 |
 
+**「修改行为」与「新增功能」的区分**：改已有功能的逻辑、规则、计算方式 → 变更；
+增加一个原来不存在的能力 → 新建。
+
 **判定必须给出理由。** 判断错误的代价是追溯链挂错位置，事后很难发现。
+理由写进状态文件（按模板要求写成**字段**，不要写成注释——注释活不过第一次门禁回写）。
+
+### 批次状态文件怎么填
+
+- `spec_snapshot.hash`：读 `projects/<项目码>/.agent/spec-effective/<项目码>.json` 的 **`snapshot_hash`**
+  字段（不是 `manifest_hash`）。`snapshot_hash` 是内容寻址的：改一条规范它就会变，调整版式它不会变。
+- `steps`：**按路径类型填不同的步骤集**——
+  - `new`：**按 `projects/_template/.agent/state/_模板.yaml` 里列出的完整 23 步**填
+    （那份模板已经是 `new` 路径的标准步骤集：init → analysis → prototype → prd → arch → … → release → archive）。
+    **不要只填需求段那 4 步**——`current_step` 的合法取值覆盖全部 23 步，
+    只填 4 步会让后续阶段无处推进，而 gate-06 的 `state-steps-final` 又要求所有步骤终态化。
+  - `resume`：保持原步骤集不变，只把 `current_step` 指向中断处
+  - `change`：走 `ai-iteration-01-impact` 起的迭代路径（影响面 → 增量设计 → 变更登记 → 发布），
+    其余步骤保留原样并标 `skipped`
+- 不适用的步骤**不要删掉**，标 `status: skipped` 并写明原因——
+  删掉会让「这一步没做过」变成不可见，而"没做的部分"恰恰是接手的人最需要知道的。
+
+## 独立执行
+
+- **hard 全满足即可单独运行**，不必从流程第一步开始——本 Skill 本身就是流程的第一步
+- soft 无；不满足 hard 时拒绝执行，并说明是哪一条
+- 批次状态文件不可写（如未接入批次）时：输出判定结论并按上述结构报告，跳过文件写入并在报告中说明
 
 ## 边界（明确不做）
 
 - 不产出需求分析、原型、PRD（那是 01/02/03/04 的职责）
 - 不判定"这个需求值不值得做"——那是 gate-01 人工决策
-- 不修改历史批次状态文件
-- 不生成 `FN` / `REQ` 编号（编号在 02-analysis 阶段申请）
+- **不猜项目码。** 判断不了就问
+- **不修改历史批次文件。** 续做只改当前批次的 `current_step`
+- **不生成 `FN` / `REQ` 编号**（编号在 02-analysis 阶段申请）
+- **不在没有规范快照时继续。** 快照不在，说明规范状态未知，此时开工等于在没有约束的情况下产出文档
+- **不因为"看起来是个小需求"就跳过批次创建**（小需求走快车道是 `ai-daily-01-fastlane` 的职责）
+- 不执行 git 操作
 
 ## 失败处理
 
@@ -73,6 +136,37 @@ status: implemented
 | 需求描述不足以判断路径类型 | 输出澄清问题，中止（不默认按新建处理） |
 | 规范快照不存在 | 提示先运行 `ai-spec-build --project <项目码>` |
 | 批次号冲突 | 序号 +1 重试；连续冲突 3 次则报错退出 |
+
+## 输出格式
+
+执行完用下面结构回复：
+
+```
+判定结论：新建（new）
+批次号：PROJ-20261019-001
+理由：该项目现有 2 个已归档批次，本次是新增「导出」能力（非修改已有行为），故为新建。
+
+下一步：执行 ai-requirement-01-init
+写入：projects/<项目码>/.agent/state/PROJ-20261019-001.yaml
+```
+
+## 配套知识
+
+| 内容 | 位置 | 何时读 |
+|---|---|---|
+| 知识索引 | `references/INDEX.md` | 每次开始前 |
+| 为什么必须先读再判、`steps` 为什么只标 `skipped` 不删、`snapshot_hash` 为什么不能用 `manifest_hash` | `references/批次判定要点.md` | 判定路径、写状态文件前 |
+| 批次状态文件模板（格式基准） | 知识库根下 `projects/_template/.agent/state/_模板.yaml` | 写状态文件时 |
+| 需求分析规范范本 | 知识库根下 `01_需求设计/references/需求分析规范范本.md` | 需求条目写法、功能点粒度、歧义处理 |
+| 业务场景清单 | 知识库根下 `01_需求设计/references/业务场景清单.md` | 判断需求归属业务场景时 |
+| 生效规范快照（哈希取同名 `.json` 的 `snapshot_hash`） | `projects/<项目码>/.agent/spec-effective/<项目码>.md` | 每次开始前 |
+
+## 与其他 Skill 的关系
+
+- 下游：`ai-requirement-01-init`（下一步）；本 Skill 创建的批次状态文件被 00 → 04 全流程与门禁读写
+- 快车道：小改动 / 工单由 `ai-daily-01-fastlane` 判定，不由本 Skill 简化流程
+- 迭代：判定为 `change` 时走 `ai-iteration-01-impact` 起的迭代路径
+- 门禁：gate-01 需求准入（人工决策"值不值得做"，不由本 Skill 判断）
 
 ## 状态
 

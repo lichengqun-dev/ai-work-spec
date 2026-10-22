@@ -170,6 +170,84 @@ def check_std_refs(root: Path):
     return problems, len(defined), len(refs)
 
 
+# ── 检查 1b：域级已脱离条目化 ────────────────────────────────
+
+DOMAIN_META = re.compile(r"<!--\s*meta\b")
+SNAPSHOT_ENTRY = re.compile(
+    r"^-\s+\*\*\[(STD-[A-Z0-9-]+)\]\*\*"      # 快照 A 段：- **[STD-…]** 标题
+    r"|^\|\s*`(STD-[A-Z0-9-]+)`\s*\|",        # 快照 B 段：| `STD-…` | … |
+    re.M)
+
+
+def domain_rule_files(root: Path) -> list[Path]:
+    """域级规范文件 = 各域 `standards/` + 规范包内的规范原文（排除 PACK/INDEX）。"""
+    return sorted(root.glob("*/standards/**/*.md")) + sorted(
+        p for p in (root / "09_资产库" / "规范包").rglob("*.md")
+        if p.name not in ("PACK.md", "INDEX.md"))
+
+
+def check_domain_detached(root: Path):
+    """域级规范文件里不得再有 `<!-- meta -->` 块。
+
+    `tier` / `scope` / `frozen` / `conflicts_with` 是"条目要进快照"时代的机器字段。
+    快照只装项目级内容之后它们的机器语义**全部消失**——留着比删掉更危险：
+    读的人会以为这些机制还在（尤其 `frozen`，看着像"不可覆盖"，
+    而覆盖机制本身已经退役），于是按一个不存在的规则行事。
+    """
+    sources = domain_rule_files(root)
+    problems = []
+    for f in sources:
+        lines = f.read_text(encoding="utf-8").split("\n")
+        mask = fenced_mask(lines)
+        for i, line in enumerate(lines):
+            if mask[i] or not DOMAIN_META.search(line):
+                continue
+            problems.append({
+                "kind": "domain-meta",
+                "detail": "域级文件里还有 `<!-- meta -->` 块——"
+                          "tier/scope/frozen 的机器语义已随快照退役，"
+                          "要强调「不可协商」就写成正文里的一行话",
+                "where": f"{f.relative_to(root)}:{i + 1}",
+            })
+    return problems, len(sources)
+
+
+# ── 检查 1c：快照只装项目级 ──────────────────────────────────
+
+def check_snapshot_scope(root: Path):
+    """项目快照的条目段里不得出现非本项目条目。
+
+    判据：A 段 `- **[STD-…]**`、B 段 `| `STD-…` |` 这两个**条目 ID 位置**上的编号，
+    必须以 `STD-PRJ-<项目码大写>-` 开头。
+
+    只看条目 ID 位置、不做全文匹配——条目摘要里出现 `符合 STD-BASE-311` 是正常引用，
+    按全文匹配会把它误判成"混入的条目"。
+
+    这条防的是"快照被重新编译回全量合并"：那会让域级规范悄悄回来，
+    而使用者以为手里这份就是项目级那一份。
+    """
+    snapshots, problems = 0, []
+    for eff in sorted((root / "projects").glob("*/.agent/spec-effective")):
+        project = eff.parent.parent.name
+        if project.startswith("_"):
+            continue
+        prefix = f"STD-PRJ-{project.upper()}-"
+        for md in sorted(eff.glob("*.md")):
+            snapshots += 1
+            text = md.read_text(encoding="utf-8")
+            for m in SNAPSHOT_ENTRY.finditer(text):
+                sid = m.group(1) or m.group(2)
+                if not sid.startswith(prefix):
+                    problems.append({
+                        "kind": "snapshot-scope",
+                        "detail": f"快照里出现非本项目条目 `{sid}`"
+                                  f"（本项目条目应以 `{prefix}` 开头）——"
+                                  f"快照被重新编译成全量合并了？",
+                        "where": str(md.relative_to(root)),
+                    })
+    return problems, snapshots
+
+
 # ── 检查 2：Skill 名引用有效性 ────────────────────────────────
 
 def check_skill_refs(root: Path):
@@ -212,22 +290,102 @@ def check_skills(root: Path):
             problems.append({"kind": "frontmatter",
                              "detail": f"name={meta.get('name')} 与目录名 {d.name} 不一致",
                              "where": str(p.relative_to(root))})
-        # description 是 Claude skill 自动发现的前提：缺了它，这个 Skill 不会被任何会话看到
-        for k in ("description", "version", "stage", "owner", "updated", "status"):
-            if k not in meta:
+        # 官方格式（Anthropic Agent Skills）：顶层只认 name + description，
+        # 本库的账本字段住在 metadata 里。放顶层会让"官方字段"与"我们的账本"混在一起。
+        if not meta.get("description"):
+            problems.append({"kind": "frontmatter",
+                             "detail": "frontmatter 缺 `description`（没有它就不会被任何会话看到）",
+                             "where": str(p.relative_to(root))})
+        mdata = meta.get("metadata")
+        if mdata is None:
+            mdata = {}
+            problems.append({"kind": "frontmatter",
+                             "detail": "缺 `metadata:` 子对象（version/stage/owner/updated/status 应住在里面）",
+                             "where": str(p.relative_to(root))})
+        elif not isinstance(mdata, dict):
+            problems.append({"kind": "frontmatter", "detail": "`metadata` 必须是映射",
+                             "where": str(p.relative_to(root))})
+            mdata = {}
+        for k in ("version", "stage", "owner", "updated", "status"):
+            if k not in mdata:
                 problems.append({"kind": "frontmatter",
-                                 "detail": f"frontmatter 缺 `{k}`",
+                                 "detail": f"metadata 缺 `{k}`",
                                  "where": str(p.relative_to(root))})
+        for k in ("version", "stage", "owner", "updated", "status",
+                  "applicable_stacks", "model_tier"):
+            if k in meta:
+                problems.append({"kind": "frontmatter",
+                                 "detail": f"`{k}` 在顶层——官方格式顶层只认 name/description，"
+                                           f"应移入 metadata",
+                                 "where": str(p.relative_to(root))})
+        dlen = len(str(meta.get("description") or ""))
+        if dlen > 800:
+            problems.append({"kind": "frontmatter",
+                             "detail": f"description {dlen} 字符，超过 800"
+                                       f"（运行时把 skill 列表的 description 合并截断在 1536）",
+                             "where": str(p.relative_to(root))})
         tail = d.name[3:] if d.name.startswith("ai-") else ""
         if tail and not tail.endswith(TOOL_SUFFIX) and tail.split("-")[0] not in STAGE:
             problems.append({"kind": "naming",
                              "detail": f"域前缀 `{tail.split('-')[0]}` 不在枚举内",
                              "where": d.name})
-        for f in ("prompt.md", "references/INDEX.md"):
-            if not (d / f).exists():
-                problems.append({"kind": "trinity", "detail": f"缺 {f}",
-                                 "where": str(d.relative_to(root))})
+        # 官方格式里 SKILL.md 就是指令本体，不存在"第二类指令文件"
+        if (d / "prompt.md").exists():
+            problems.append({"kind": "format",
+                             "detail": "目录里还有 prompt.md —— 官方格式要求把指令并入 SKILL.md",
+                             "where": str(d.relative_to(root))})
+        if not (d / "references/INDEX.md").exists():
+            problems.append({"kind": "format", "detail": "缺 references/INDEX.md",
+                             "where": str(d.relative_to(root))})
+    problems += check_skill_resources(root)
     return problems, len(paths)
+
+
+# ── 检查 3a-2：Skill 内的资源引用 ────────────────────────────
+
+RES_REF = re.compile(r"`((?:references|scripts|assets)/[^`\s]+?)`")
+ROOT_REF = re.compile(r"知识库根下\s*`([^`<>]+?)`")
+
+
+def check_skill_resources(root: Path):
+    """Skill 里两类资源引用都必须能解析到真实文件。
+
+    - **skill 内部资源**（`references/` `scripts/` `assets/`）→ 相对 **skill 目录**解析。
+      官方格式要求这么写，因为挂载层在 `.claude/skills/<name>/`——写成知识库根相对路径
+      在那里读不到。
+    - **skill 外部资源**（各域 `standards/`、`09_资产库/` 规范包、项目产出物）→ 知识库根相对路径，
+      正文里要写明「知识库根下」。这类引用最容易**写成看起来对、实际不存在的路径**。
+
+    只查这两类：`./x.md` 这种相对索引文件自身的 Markdown 链接交给 Markdown 结构检查。
+    """
+    problems = []
+    for p in skill_md_files(root):
+        if p.parent.name == ".claude":
+            continue
+        files = [p] + sorted((p.parent / "references").glob("*.md"))
+        for f in files:
+            if not f.is_file():
+                continue
+            text = f.read_text(encoding="utf-8")
+            rel = str(f.relative_to(root))
+            for ref in sorted(set(RES_REF.findall(text))):
+                target = ref.split("#")[0].strip()
+                if target.endswith("/"):
+                    continue
+                if not (p.parent / target).exists():
+                    problems.append({"kind": "resource",
+                                     "detail": f"引用了 `{target}`，但该文件不存在"
+                                               f"（相对 skill 目录解析）",
+                                     "where": rel})
+            for ref in sorted(set(ROOT_REF.findall(text))):
+                target = ref.strip().rstrip("/")
+                if not target or any(c in target for c in "<>*"):
+                    continue
+                if not (root / target).exists():
+                    problems.append({"kind": "resource",
+                                     "detail": f"写着「知识库根下 `{ref}`」，但知识库根下没有这个路径",
+                                     "where": rel})
+    return problems
 
 
 # ── 检查 3b：项目级 Skill ────────────────────────────────────
@@ -276,24 +434,25 @@ def check_project_skills(root: Path):
                 problems.append({"kind": "project-skill",
                                  "detail": "frontmatter 缺 `description`（没有它就不会被任何会话看到）",
                                  "where": rel})
-            for f in ("prompt.md", "references/INDEX.md"):
-                if not (d / f).exists():
-                    problems.append({"kind": "project-skill",
-                                     "detail": f"缺 {f}", "where": rel})
+            # 与顶层 Skill 同一套官方格式要求：指令在 SKILL.md 里
+            # （项目级 Skill 不强制 references/ —— 它们是项目自己的工具，形态自由）
+            if (d / "prompt.md").exists():
+                problems.append({"kind": "project-skill",
+                                 "detail": "目录里还有 prompt.md —— 指令应并入 SKILL.md",
+                                 "where": rel})
     return problems
 
 
 # ── 检查 4：上下文预算 ────────────────────────────────────────
 
 BUDGET = {("CLAUDE.md", None): 200,
-          ("SKILL.md", None): 150,
-          ("prompt.md", None): 300}
+          ("SKILL.md", None): 400}      # 合并 prompt.md 之后的上限（原 150 + 300）
 
 
 def check_budget(root: Path):
     problems = []
     for f in root.rglob("*"):
-        if not f.is_file() or f.name not in ("CLAUDE.md", "SKILL.md", "prompt.md"):
+        if not f.is_file() or f.name not in ("CLAUDE.md", "SKILL.md"):
             continue
         parts = f.relative_to(root).parts
         if parts[0] in (".git", ".claude", "projects"):
@@ -352,10 +511,32 @@ def check_status_claims(root: Path):
     return problems
 
 
-def check_mount_layer(root: Path):
-    """`.claude/skills/` 是给 skill 发现机制看的挂载层，由脚本生成。
+def _tree_hashes(d: Path) -> dict[str, str]:
+    """目录内文件的内容指纹（跳过 __pycache__ 与隐藏文件），用于比对挂载副本。"""
+    out: dict[str, str] = {}
+    if not d.is_dir():
+        return out
+    for p in sorted(d.rglob("*")):
+        if not p.is_file() or p.is_symlink():
+            continue
+        rel = p.relative_to(d)
+        if any(part == "__pycache__" or part.startswith(".") for part in rel.parts):
+            continue
+        out[rel.as_posix()] = hashlib.sha256(p.read_bytes()).hexdigest()[:16]
+    return out
 
-    它必须与真实定义同步：description 是 Claude 决定「什么时候用哪个 skill」的依据，
+
+def check_mount_layer(root: Path):
+    """`.claude/skills/` 是给 skill 发现机制看的挂载层，由 `ai-spec-mount` 生成。
+
+    两件事必须成立：
+
+    1. **它是完整目录**（`SKILL.md` + `references/` + `scripts/` + `assets/`）。
+       官方格式里 `SKILL.md` 用**相对 skill 目录**引用资源，挂载位置看不到这些子目录，
+       那些引用就会断——这正是早先"只放一个 SKILL.md"的写法留下的坑。
+    2. **内容与真实定义一致**。挂载层若用符号链接，则校验它指对了地方。
+
+    `description` 也要一致：它是 Claude 决定「什么时候用哪个 skill」的依据，
     挂载层里的 description 过期，等于让模型按错误的触发条件选 Skill。
     """
     mount = root / ".claude" / "skills"
@@ -370,21 +551,42 @@ def check_mount_layer(root: Path):
         if not name:
             continue
         names.add(name)
-        target = mount / name / "SKILL.md"
-        if not target.is_file():
+        src, dst = p.parent, mount / name
+        if not dst.exists():
             problems.append({"kind": "mount",
                              "detail": f"`{name}` 缺少 .claude/skills/ 挂载（不会被 skill 发现机制看到）",
                              "where": str(p.relative_to(root))})
             continue
-        mt = target.read_text(encoding="utf-8")
-        m = re.search(r"^description: (.+)$", mt, re.M)
-        if not m or m.group(1).strip() != str(desc).strip():
+        if dst.is_symlink():
+            if dst.resolve() != src.resolve():
+                problems.append({"kind": "mount",
+                                 "detail": f"`{name}` 的符号链接指向 {dst.resolve()}，应为 {src}",
+                                 "where": str(dst.relative_to(root))})
+            continue
+        target = dst / "SKILL.md"
+        if target.is_file():
+            m = re.search(r"^description: (.+)$", target.read_text(encoding="utf-8"), re.M)
+            if not m or m.group(1).strip() != str(desc).strip():
+                problems.append({"kind": "mount",
+                                 "detail": f"`{name}` 挂载层的 description 与真实定义不一致",
+                                 "where": str(dst.relative_to(root))})
+        a, b = _tree_hashes(src), _tree_hashes(dst)
+        for rel in sorted(set(a) - set(b)):
             problems.append({"kind": "mount",
-                             "detail": f"`{name}` 挂载层的 description 与真实定义不一致",
-                             "where": str(target.relative_to(root))})
+                             "detail": f"`{name}` 挂载层缺 `{rel}`（SKILL.md 里的相对引用会断）",
+                             "where": str(dst.relative_to(root))})
+        for rel in sorted(set(b) - set(a)):
+            problems.append({"kind": "mount",
+                             "detail": f"`{name}` 挂载层多出 `{rel}`（真实定义里没有）",
+                             "where": str(dst.relative_to(root))})
+        for rel in sorted(set(a) & set(b)):
+            if a[rel] != b[rel]:
+                problems.append({"kind": "mount",
+                                 "detail": f"`{name}` 的 `{rel}` 与真实定义不一致",
+                                 "where": str(dst.relative_to(root))})
     if mount.is_dir():
         for d in sorted(mount.iterdir()):
-            if d.is_dir() and d.name not in names:
+            if (d.is_dir() or d.is_symlink()) and d.name not in names:
                 problems.append({"kind": "mount",
                                  "detail": f"挂载层存在 `{d.name}`，但知识库里已无此 Skill",
                                  "where": str(d.relative_to(root))})
@@ -723,15 +925,19 @@ def main() -> int:
     p12 = check_stale_claims(root)
     p13 = check_rules_drift(root)
     p14 = check_project_skills(root)
+    p15, n_domain_files = check_domain_detached(root)
+    p16, n_snapshots = check_snapshot_scope(root)
     all_problems = (p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12
-                    + p13 + p14)
+                    + p13 + p14 + p15 + p16)
     n_proj_skill = len(list((root / "projects").glob("*/skills/*/SKILL.md")))
 
     if args.json:
         print(json.dumps({"problems": all_problems,
                           "stats": {"std_defined": n_def, "std_referenced": n_ref,
                                     "skills": n_skill, "gate_checks": n_gate_checks,
-                                    "skill_md": n_skillmd}},
+                                    "skill_md": n_skillmd,
+                                    "domain_files": n_domain_files,
+                                    "snapshots": n_snapshots}},
                          ensure_ascii=False, indent=2))
         return 1 if all_problems else 0
 
@@ -740,7 +946,8 @@ def main() -> int:
         "skill-ref": "Skill 名引用无效",
         "frontmatter": "SKILL.md 元信息",
         "naming": "Skill 命名",
-        "trinity": "三件套缺失",
+        "format": "Skill 目录结构（官方四件套）",
+        "resource": "Skill 内资源引用",
         "budget": "上下文预算超标",
         "gate": "门禁检查项",
         "status-claim": "状态描述与实现矛盾",
@@ -750,11 +957,13 @@ def main() -> int:
         "placeholder": "三件套只是模板复制",
         "rules-drift": "项目级条目与源散文已分叉",
         "project-skill": "项目级 Skill",
+        "domain-meta": "域级仍带条目 meta 块",
+        "snapshot-scope": "快照混入非本项目条目",
     }
     print(f"\n知识库一致性检查")
-    print(f"  STD 条目 {n_def} 个（被引用 {n_ref} 个）｜ "
+    print(f"  STD 锚点 {n_def} 个（被引用 {n_ref} 个）｜ 域级规范文件 {n_domain_files} 个 ｜ "
           f"顶层 Skill {n_skill} 个（挂载层）｜ 项目级 Skill {n_proj_skill} 个 ｜ "
-          f"门禁检查项 {n_gate_checks} 个\n")
+          f"项目快照 {n_snapshots} 份 ｜ 门禁检查项 {n_gate_checks} 个\n")
     if not all_problems:
         print("  ✅ 未发现跨文件不一致")
         print("     （覆盖上表各类；不含条目正文的语义矛盾）\n")

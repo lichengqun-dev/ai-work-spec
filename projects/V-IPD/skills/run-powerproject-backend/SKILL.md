@@ -52,10 +52,10 @@ JDK 17 会产生三个假问题（JDK 8 下全部不存在）：
 
 | 组件 | 地址 | 凭据 |
 |------|------|------|
-| GaussDB | `jdbc:postgresql://10.82.45.158:8000,10.82.45.1:8000/PowerProject6` | `pp` / `<见密码保险柜>` |
-| Redis | `10.82.71.250:6379` **db3** | `<见密码保险柜>`（一期共享配置 `application-local-base.yml`；二期各模块 `application-local.yml`）。**必须用 db3**：dev K8s ConfigMap 设 `SPRING_REDIS_DATABASE=3`，OAuth 把 token context 写在 db3，本地用其他 db 会报 REQUEST_408 |
-| Nacos | `10.82.45.10:8848` group `ppExploit` | 密码 `<见密码保险柜>`，**discovery 与 ribbon 均关闭** |
-| RabbitMQ | `10.82.45.211:5672` | `<见密码保险柜>` |
+| GaussDB | `jdbc:postgresql://10.82.45.158:8000,10.82.45.1:8000/PowerProject6` | `pp` / `V0y@hFre!` |
+| Redis | `10.82.71.250:6379` **db3** | `cred888888`（一期共享配置 `application-local-base.yml`；二期各模块 `application-local.yml`）。**必须用 db3**：dev K8s ConfigMap 设 `SPRING_REDIS_DATABASE=3`，OAuth 把 token context 写在 db3，本地用其他 db 会报 REQUEST_408 |
+| Nacos | `10.82.45.10:8848` group `ppExploit` | 密码 `V0y@hFre!`，**discovery 与 ribbon 均关闭** |
+| RabbitMQ | `10.82.45.211:5672` | `V0y@hFre!` |
 | iform 平台库 | MySQL `47.113.205.64:3306/iform_v357` | auth/desktop 表在这里，**不在 GaussDB**（仅一期需要） |
 
 ## 关键配置（已就绪，勿重复创建）

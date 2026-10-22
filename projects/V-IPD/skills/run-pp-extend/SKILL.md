@@ -175,10 +175,10 @@ curl.exe -X POST http://localhost:18087/pp/cmf/v1/base-assemblies `
 
 | 组件 | 地址 | 凭据 | 备注 |
 |------|------|------|------|
-| GaussDB | `jdbc:postgresql://10.82.45.158:8000,10.82.45.1:8000/PowerProject6` | `pp` / `<见密码保险柜>` | 双节点主备 |
-| Redis | `10.82.71.250:6379` **db3** | `<见密码保险柜>` | 与一期对齐 |
-| Nacos | `10.82.45.10:8848`（group `ppExploit`） | `nacos` / `<见密码保险柜>` | discovery 关闭，仅 config import |
-| RabbitMQ | `10.82.45.211:5672` | `admin` / `<见密码保险柜>` | |
+| GaussDB | `jdbc:postgresql://10.82.45.158:8000,10.82.45.1:8000/PowerProject6` | `pp` / `V0y@hFre!` | 双节点主备 |
+| Redis | `10.82.71.250:6379` **db3** | `cred888888` | 与一期对齐 |
+| Nacos | `10.82.45.10:8848`（group `ppExploit`） | `nacos` / `V0y@hFre!` | discovery 关闭，仅 config import |
+| RabbitMQ | `10.82.45.211:5672` | `admin` / `V0y@hFre!` | |
 | 飞书 | app-id `cli_aa87ef669f795cd1` | （见 yml） | tenant_access_token 缓存 Redis |
 
 环境变量全覆盖（`${VAR:default}` 模式），要覆盖任何配置直接设环境变量即可。
