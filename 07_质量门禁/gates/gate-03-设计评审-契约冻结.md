@@ -20,9 +20,9 @@ waivable: partial
 
 | # | 检查内容 | 方式 | 阻断级别 | 失败处理 |
 |---|---|---|---|---|
-| 1 | FN 覆盖率：PRD 中每个 FN 都出现在设计类产出物中 | auto:fn-coverage-design | BLOCK | 列出缺失 FN |
-| 2 | 每个 FN 在设计文档中有专属小节（标题或 § 引用） | auto:fn-design-section | WARN | 生成待办 |
-| 3 | 每个 API 都能追溯到至少一个 FN | auto:api-has-fn | BLOCK | 列出孤儿接口 |
+| 1 | FR 覆盖率：PRD 中每个 FR 都出现在设计类产出物中 | auto:fr-coverage-design | BLOCK | 列出缺失 FR |
+| 2 | 每个 FR 在设计文档中有专属小节（标题或 § 引用） | auto:fr-design-section | WARN | 生成待办 |
+| 3 | 每个 API 都能追溯到至少一个 FR | auto:api-has-fn | BLOCK | 列出孤儿接口 |
 | 4 | 每个 API 有明确的错误码定义（符合 STD-BASE-321） | auto:api-error-codes | WARN | 生成待办补充 |
 | 5 | 数据库设计包含 DDL 与回滚脚本（符合 STD-BASE-311） | auto:ddl-rollback | BLOCK | 要求补齐回滚脚本 |
 | 6 | 数据库字段有注释，枚举型字段写明取值（符合 STD-BASE-312） | auto:db-field-comments | WARN | 生成待办 |

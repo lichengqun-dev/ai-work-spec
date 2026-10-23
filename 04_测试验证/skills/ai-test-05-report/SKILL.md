@@ -36,7 +36,7 @@ metadata:
 |---|---|---|---|
 | 执行结果 | `ai-test-03-execute` 产出 | 是 | 含每条的结论 |
 | 缺陷台账 | `ai-test-03-execute` 产出 | 是 | 表头固定（见 `ai-test-03-execute`） |
-| 回归范围 | `ai-test-04-regression` 产出 | 是 | 受影响 FN 与用例清单 |
+| 回归范围 | `ai-test-04-regression` 产出 | 是 | 受影响 FR 与用例清单 |
 | 测试用例 | `ai-test-01-cases` 产出 | 是 | 用于计算总数与执行率 |
 
 ## 产出契约

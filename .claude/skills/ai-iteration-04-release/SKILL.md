@@ -39,7 +39,7 @@ metadata:
 | 数据库设计 | 本批次产出物 | 否 | 含 DDL 与回滚脚本时用于组织上线顺序 |
 
 **注意：本 Skill 不依赖 `ai-archive-01-close`。** 归档在本流程里是**本 Skill 之后**的一步
-（第 23 步 vs 第 22 步），把它当上游会形成环。FN 清单从 `projects/<项目码>/.agent/index/功能编号总表.md` 读即可。
+（第 23 步 vs 第 22 步），把它当上游会形成环。FR 清单从 `projects/<项目码>/.agent/index/功能编号总表.md` 读即可。
 
 ## 产出契约
 

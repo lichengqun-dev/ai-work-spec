@@ -13,14 +13,14 @@ waivable: partial
 ## 入口条件（进入本门禁前的必要条件）
 
 - [ ] gate-04 已通过
-- [ ] 测试用例已生成且挂载到 FN 编号
+- [ ] 测试用例已生成且挂载到 FR 编号
 - [ ] 缺陷已收敛
 
 ## 检查项
 
 | # | 检查内容 | 方式 | 阻断级别 | 失败处理 |
 |---|---|---|---|---|
-| 1 | 每个 FN 至少有一条测试用例覆盖（符合 STD-BASE-501） | auto:fn-has-testcase | BLOCK | 列出未覆盖的 FN |
+| 1 | 每个 FR 至少有一条测试用例覆盖（符合 STD-BASE-501） | auto:fr-has-testcase | BLOCK | 列出未覆盖的 FR |
 | 2 | 用例执行率 100%（无未执行用例） | auto:testcase-executed | BLOCK | 要求执行完毕 |
 | 3 | P0 / P1 缺陷全部关闭 | auto:p0p1-closed | BLOCK | 不允许带 P0/P1 上线 |
 | 4 | 上线步骤与回滚方案已具备 | auto:rollout-plan-present | BLOCK | 要求补充 |

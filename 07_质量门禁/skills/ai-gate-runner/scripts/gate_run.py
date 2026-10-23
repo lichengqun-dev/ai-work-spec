@@ -116,8 +116,8 @@ SECRET_PATTERNS = [
 SECRET_ALLOWLIST = re.compile(r"[<{]$|\$\{|xxx|your|example|placeholder|\*\*\*|change_?me|见配置|环境变量", re.I)
 
 TASK_RE = re.compile(r"^(feat|fix|perf|refactor|test|docs|chore|style)\(([^)]+)\):\s*(\S.*)$")
-FN_RE = re.compile(r"FN-[A-Z0-9]+-\d{3}(?:-D\d+)?")
-TC_RE = re.compile(r"TC-(FN-[A-Z0-9]+-\d{3}(?:-D\d+)?)-\d{2}")
+FR_RE = re.compile(r"FR-[A-Z0-9]+-\d{3}(?:-D\d+)?")
+TC_RE = re.compile(r"TC-(FR-[A-Z0-9]+-\d{3}(?:-D\d+)?)-\d{2}")
 REQ_RE = re.compile(r"REQ-[A-Z0-9]+-\d{3}")
 DEC_RE = re.compile(r"DEC-[A-Z0-9]+-\d{3}")
 
@@ -301,7 +301,7 @@ class Ctx:
         """扫描某个仓。`which` ∈ {proto, code}。
 
         分开扫描是必要的：原型仓里是页面代码、代码仓里是业务代码，
-        用同一个根扫描会让 `data-fn` 覆盖率、密钥扫描、提交检查互相污染。
+        用同一个根扫描会让 `data-fr` 覆盖率、密钥扫描、提交检查互相污染。
 
         代码仓可以是多个（前后端分仓），返回的相对路径**带仓名前缀**——
         否则两个仓里同名的文件会在报告里分不清是哪个，而密钥扫描的报告必须能定位。
@@ -334,12 +334,12 @@ class Ctx:
         return out
 
     def scoped_fns(self) -> list[str]:
-        """本批次范围内的 FN：出现在产出物中、但排除编号总表本身。"""
+        """本批次范围内的 FR：出现在产出物中、但排除编号总表本身。"""
         fns: set[str] = set()
         for rel, text in self.artifact_texts():
             if "功能编号总表" in rel:
                 continue
-            fns.update(FN_RE.findall(text))
+            fns.update(FR_RE.findall(text))
         return sorted(fns)
 
     def parse_number_table(self) -> dict[str, list[dict]]:
@@ -397,7 +397,7 @@ def load_ctx(root: Path, project: str, batch_id: str, gate: Gate) -> Ctx:
         """解析仓库**列表**字段（如 `code_repos`）。
 
         前后端分仓的项目里，`code_repo` 一个字段装不下两个仓——
-        而提交格式、FN 关联、密钥扫描这三项检查都要扫**全部**代码仓，
+        而提交格式、FR 关联、密钥扫描这三项检查都要扫**全部**代码仓，
         只扫一个会让另一个仓的同类问题完全漏掉（且不留任何痕迹）。
         """
         v = manifest.get(key)
@@ -465,19 +465,19 @@ def _need_proto(ctx: Ctx, why: str):
 
     为什么是 external 而不是 skip：**「原型由需求方外部提供」是一个合法情形**。
     存量系统的功能增强、客户已给精确原型的场景里，本项目根本不会有
-    `ai-requirement-03-prototype` 产出的那种带 `data-fn` 标记的可运行原型工程。
+    `ai-requirement-03-prototype` 产出的那种带 `data-fr` 标记的可运行原型工程。
     补材料也补不出来——那不是"暂时缺"，是"这份材料不会存在"。
 
     而 `skip` 在 BLOCK 级会拒绝签核，gate-02 又是 `waivable: no`（连豁免都不许），
     两者叠加曾让 gate-02 **结构上无法通过**，整条流程卡死在原型确认这一步。
     这与 `lint-passthrough` 造成的 gate-04 死结是同一类缺陷。
 
-    改成 external 后，人**可以**真的去核对「每个 FN 在原型里有没有对应交互」，
+    改成 external 后，人**可以**真的去核对「每个 FR 在原型里有没有对应交互」，
     签核时用 --evidence 说明依据在哪——判断有依据，签核就成立。
     """
     if not ctx.proto_root:
         return (EXTERNAL,
-                f"本项目未配置原型工程仓（`prototype_repo`）。执行器查不了 `data-fn` 覆盖——"
+                f"本项目未配置原型工程仓（`prototype_repo`）。执行器查不了 `data-fr` 覆盖——"
                 f"**这不是「暂时缺材料」，而是这类产出物在本项目里不存在**。\n"
                 f"      先分清是哪种情况：\n"
                 f"      ① **原型由需求方外部提供**（合法）→ 请人工核对下面这件事，并在签核时用 "
@@ -536,72 +536,72 @@ def _c_req_acceptance(ctx: Ctx):
     return (PASS, f"已在 {len(hits)} 份需求类产出物中检到可判定的验收要点。")
 
 
-@check("fn-coverage-prototype", "原型是否覆盖全部 FN")
+@check("fr-coverage-prototype", "原型是否覆盖全部 FR")
 def _c_fn_cov_proto(ctx: Ctx):
-    if (s := _need_proto(ctx, "确认每个 FN 都有对应页面元素")):
+    if (s := _need_proto(ctx, "确认每个 FR 都有对应页面元素")):
         return s
     marked: set[str] = set()
     for _, t in ctx.scan("proto", (".html", ".vue", ".jsx", ".tsx", ".js")):
-        marked.update(re.findall(r'data-fn=["\'](FN-[A-Z0-9]+-\d{3}(?:-D\d+)?)["\']', t))
+        marked.update(re.findall(r'data-fr=["\'](FR-[A-Z0-9]+-\d{3}(?:-D\d+)?)["\']', t))
     if not marked:
-        return (SKIP, "项目仓内未检到任何 `data-fn` 标记，无法判断原型覆盖。"
+        return (SKIP, "项目仓内未检到任何 `data-fr` 标记，无法判断原型覆盖。"
                       "若原型在独立仓，请在 manifest 的 `repo` 指向原型工程仓。")
     fns = set(ctx.scoped_fns())
     if not fns:
-        # 扫到 0 个 FN 时不能说「全覆盖」——那是最典型的假通过
-        return (SKIP, f"原型仓检出 {len(marked)} 个 data-fn 标记，但产出物里没有可比的 FN 编号"
+        # 扫到 0 个 FR 时不能说「全覆盖」——那是最典型的假通过
+        return (SKIP, f"原型仓检出 {len(marked)} 个 data-fr 标记，但产出物里没有可比的 FR 编号"
                       f"（需求分析尚未产出功能清单时属正常）。此时无法判断覆盖率。")
     missing = sorted(fns - marked)
     if missing:
-        return (FAIL, "以下 FN 在原型中没有对应元素：" + "、".join(missing))
-    return (PASS, f"范围内 {len(fns)} 个 FN 均在原型中有标记。")
+        return (FAIL, "以下 FR 在原型中没有对应元素：" + "、".join(missing))
+    return (PASS, f"范围内 {len(fns)} 个 FR 均在原型中有标记。")
 
 
-@check("data-fn-markers", "原型是否存在可统计的 data-fn 标记")
+@check("data-fr-markers", "原型是否存在可统计的 data-fr 标记")
 def _c_data_fn(ctx: Ctx):
-    if (s := _need_proto(ctx, "为可交互元素补 `data-fn` 标记")):
+    if (s := _need_proto(ctx, "为可交互元素补 `data-fr` 标记")):
         return s
     total, valid = 0, 0
     invalid = []
     for rel, t in ctx.scan("proto", (".html", ".vue", ".jsx", ".tsx", ".js")):
-        for raw in re.findall(r'data-fn=["\']([^"\']*)["\']', t):
+        for raw in re.findall(r'data-fr=["\']([^"\']*)["\']', t):
             total += 1
-            if FN_RE.fullmatch(raw.strip()):
+            if FR_RE.fullmatch(raw.strip()):
                 valid += 1
             else:
                 invalid.append(f"{rel}: {raw}")
     if total == 0:
-        return (FAIL, "项目仓内未检到任何 `data-fn` 标记。"
+        return (FAIL, "项目仓内未检到任何 `data-fr` 标记。"
                       "原型元素不带标记，`ai-requirement-04-prd` 就无法靠遍历原型生成 PRD。")
     if invalid:
-        return (FAIL, f"{len(invalid)} 处 `data-fn` 取值不是合法 FN 编号，例如：" + "；".join(invalid[:3]))
-    return (PASS, f"检到 {valid} 处合法 `data-fn` 标记。")
+        return (FAIL, f"{len(invalid)} 处 `data-fr` 取值不是合法 FR 编号，例如：" + "；".join(invalid[:3]))
+    return (PASS, f"检到 {valid} 处合法 `data-fr` 标记。")
 
 
-@check("fn-coverage-design", "每个 FN 是否有对应设计章节")
+@check("fr-coverage-design", "每个 FR 是否有对应设计章节")
 def _c_fn_cov_design(ctx: Ctx):
     if (s := _need_docs(ctx)):
         return s
     fns = ctx.scoped_fns()
     if not fns:
-        return (SKIP, "产出物中未检到任何 FN 编号，无法判断设计覆盖率。"
-                      "请确认上游 `ai-requirement-02-analysis` 已分配 FN 编号。")
+        return (SKIP, "产出物中未检到任何 FR 编号，无法判断设计覆盖率。"
+                      "请确认上游 `ai-requirement-02-analysis` 已分配 FR 编号。")
     design = "\n".join(t for _, t in ctx.artifact_texts("design"))
     if not design.strip():
-        return (FAIL, f"范围内有 {len(fns)} 个 FN，但没有设计类产出物"
+        return (FAIL, f"范围内有 {len(fns)} 个 FR，但没有设计类产出物"
                       f"（路径需含 {'/'.join(PATH_MARKERS['design'])} 之一）。")
     missing = [f for f in fns if f not in design]
     if missing:
-        return (FAIL, f"以下 {len(missing)} 个 FN 没有对应设计章节：" + "、".join(missing))
-    return (PASS, f"范围内 {len(fns)} 个 FN 均有设计章节。")
+        return (FAIL, f"以下 {len(missing)} 个 FR 没有对应设计章节：" + "、".join(missing))
+    return (PASS, f"范围内 {len(fns)} 个 FR 均有设计章节。")
 
 
-@check("fn-design-section", "每个 FN 是否有专属设计小节")
+@check("fr-design-section", "每个 FR 是否有专属设计小节")
 def _c_fn_design_section(ctx: Ctx):
-    """`fn-coverage-design` 的加强版。
+    """`fr-coverage-design` 的加强版。
 
-    前者只要求 FN 出现在设计类产出物中——接口契约、数据库设计里提到该 FN 也算，
-    所以是个偏松的下限。本检查要求 FN 在设计文档里**有专属小节**（标题或 § 引用），
+    前者只要求 FR 出现在设计类产出物中——接口契约、数据库设计里提到该 FR 也算，
+    所以是个偏松的下限。本检查要求 FR 在设计文档里**有专属小节**（标题或 § 引用），
     这才是「有对应设计章节」的字面含义。定为 WARN：命名习惯千差万别，
     误报不该阻断交付，但值得有人看一眼。
     """
@@ -609,7 +609,7 @@ def _c_fn_design_section(ctx: Ctx):
         return s
     fns = ctx.scoped_fns()
     if not fns:
-        return (SKIP, "产出物中未检到任何 FN 编号，无法判断。")
+        return (SKIP, "产出物中未检到任何 FR 编号，无法判断。")
     design = "\n".join(t for _, t in ctx.artifact_texts("design"))
     if not design.strip():
         return (SKIP, "无设计类产出物，无法判断。")
@@ -619,12 +619,12 @@ def _c_fn_design_section(ctx: Ctx):
         if not pat.search(design):
             missing.append(f)
     if missing:
-        return (FAIL, f"{len(missing)} 个 FN 在设计文档中没有专属小节"
+        return (FAIL, f"{len(missing)} 个 FR 在设计文档中没有专属小节"
                       f"（既不是标题也不带 § 引用）：" + "、".join(missing[:8]))
-    return (PASS, f"范围内 {len(fns)} 个 FN 在设计文档中均有专属小节。")
+    return (PASS, f"范围内 {len(fns)} 个 FR 在设计文档中均有专属小节。")
 
 
-@check("api-has-fn", "每个接口是否可追溯到 FN")
+@check("api-has-fn", "每个接口是否可追溯到 FR")
 def _c_api_has_fn(ctx: Ctx):
     if (s := _need_docs(ctx)):
         return s
@@ -651,13 +651,13 @@ def _c_api_has_fn(ctx: Ctx):
                     orphans.append(f"{method.upper()} {path}")
                     continue
                 blob = json.dumps(op, ensure_ascii=False)
-                if not (FN_RE.search(blob) or FN_RE.search(str(op.get("x-fn-id", "")))
-                        or (fns and re.search(r"FN-", blob))):
+                if not (FR_RE.search(blob) or FR_RE.search(str(op.get("x-fr-id", "")))
+                        or (fns and re.search(r"FR-", blob))):
                     orphans.append(f"{method.upper()} {path}")
     if orphans:
-        return (FAIL, f"{len(orphans)}/{total} 个接口无法追溯到 FN（建议加 `x-fn-id` 扩展字段）："
+        return (FAIL, f"{len(orphans)}/{total} 个接口无法追溯到 FR（建议加 `x-fr-id` 扩展字段）："
                       + "；".join(orphans[:5]))
-    return (PASS, f"{total} 个接口均可追溯到 FN。")
+    return (PASS, f"{total} 个接口均可追溯到 FR。")
 
 
 @check("api-error-codes", "每个接口是否定义了错误码")
@@ -798,7 +798,7 @@ def _c_decision(ctx: Ctx):
     return (PASS, f"检到 {len(decs)} 条设计决策记录：{', '.join(decs[:5])}")
 
 
-@check("commit-format", "提交信息格式与 FN 关联")
+@check("commit-format", "提交信息格式与 FR 关联")
 def _c_commit_fmt(ctx: Ctx):
     if (s := _need_code(ctx, "提交代码后重跑本门禁")):
         return s
@@ -822,8 +822,8 @@ def _c_commit_fmt(ctx: Ctx):
             m = TASK_RE.match(subject)
             if not m:
                 bad.append(f"[{label}] {h} 「{subject[:40]}」类型或格式不符")
-            elif not (FN_RE.search(subject) or FN_RE.search(body)):
-                bad.append(f"[{label}] {h} 「{subject[:40]}」未关联 FN 编号")
+            elif not (FR_RE.search(subject) or FR_RE.search(body)):
+                bad.append(f"[{label}] {h} 「{subject[:40]}」未关联 FR 编号")
     if not checked:
         return (SKIP, "配置的代码仓都没有任何提交" +
                       (f"（{('、'.join(empty))}）" if empty else "") + "。")
@@ -831,11 +831,11 @@ def _c_commit_fmt(ctx: Ctx):
         scope = "、".join(label for label, _ in per)
         return (FAIL, f"{len(bad)}/{checked} 个提交不合规（{scope}，符合 STD-BASE-002 / 003）："
                       + "；".join(bad[:4]))
-    return (PASS, f"{len(per)} 个代码仓共 {checked} 个提交，格式合规且均关联 FN 编号"
+    return (PASS, f"{len(per)} 个代码仓共 {checked} 个提交，格式合规且均关联 FR 编号"
                   f"（{'、'.join(label for label, _ in per)}）。")
 
 
-@check("fn-has-commit", "每个 FN 是否有对应提交")
+@check("fr-has-commit", "每个 FR 是否有对应提交")
 def _c_fn_commit(ctx: Ctx):
     if (s := _need_code(ctx, "提交代码后重跑本门禁")):
         return s
@@ -844,21 +844,21 @@ def _c_fn_commit(ctx: Ctx):
     if unreadable:
         fns = ctx.scoped_fns()
         return (SKIP, f"{len(unreadable)}/{len(per)} 个代码仓读不到提交历史"
-                      f"（{'、'.join(unreadable)}）——**本项的 {len(fns)} 个 FN "
+                      f"（{'、'.join(unreadable)}）——**本项的 {len(fns)} 个 FR "
                       f"全部处于「未校验」状态，不是「0 条断链」**。\n"
                       f"  这条区别很重要：断链检测的目标是 0，但「没查」和「查了发现是 0」完全不同。\n"
                       f"  处理：核对 `projects/{ctx.project}/.agent/project.yaml` 的 `code_repos` 是否都指向真实代码仓。")
     fns = ctx.scoped_fns()
     if not fns:
-        return (SKIP, "产出物中未检到 FN 编号，无法判断提交关联。")
-    # 多个仓的提交合并成一个文本池：一个 FN 的实现可能跨前后端两个仓，
+        return (SKIP, "产出物中未检到 FR 编号，无法判断提交关联。")
+    # 多个仓的提交合并成一个文本池：一个 FR 的实现可能跨前后端两个仓，
     # 只要在**任一**仓的提交里出现，就算关联上了。
     blob = "\n".join(f"{s}\n{b}" for _, log in per for _, s, b in log)
     missing = [f for f in fns if f not in blob]
     if missing:
-        return (FAIL, f"以下 {len(missing)} 个 FN 在任何代码仓的提交里都找不到："
+        return (FAIL, f"以下 {len(missing)} 个 FR 在任何代码仓的提交里都找不到："
                       + "、".join(missing[:8]))
-    return (PASS, f"范围内 {len(fns)} 个 FN 均有提交关联"
+    return (PASS, f"范围内 {len(fns)} 个 FR 均有提交关联"
                   f"（已检索 {len(per)} 个代码仓：{'、'.join(label for label, _ in per)}）。")
 
 
@@ -899,19 +899,19 @@ def _c_secrets(ctx: Ctx):
     return (PASS, "未检到疑似硬编码凭据。")
 
 
-@check("fn-has-testcase", "每个 FN 是否有测试用例覆盖")
+@check("fr-has-testcase", "每个 FR 是否有测试用例覆盖")
 def _c_fn_tc(ctx: Ctx):
     if (s := _need_docs(ctx)):
         return s
     fns = ctx.scoped_fns()
     if not fns:
-        return (SKIP, "产出物中未检到 FN 编号，无法判断用例覆盖。")
+        return (SKIP, "产出物中未检到 FR 编号，无法判断用例覆盖。")
     covered = set(TC_RE.findall(ctx.all_artifact_text()))
     missing = [f for f in fns if f not in covered]
     if missing:
-        return (FAIL, f"以下 {len(missing)} 个 FN 没有挂载用例（符合 STD-BASE-501）："
+        return (FAIL, f"以下 {len(missing)} 个 FR 没有挂载用例（符合 STD-BASE-501）："
                       + "、".join(missing[:8]))
-    return (PASS, f"范围内 {len(fns)} 个 FN 均有挂载用例。")
+    return (PASS, f"范围内 {len(fns)} 个 FR 均有挂载用例。")
 
 
 @check("testcase-executed", "用例执行率")
@@ -1004,7 +1004,7 @@ def _c_defects(ctx: Ctx):
 
 @check("regression-scoped", "回归范围是否圈定")
 def _c_regression(ctx: Ctx):
-    """要求存在**专门的回归范围产出物**，且其中列出了具体的 FN。
+    """要求存在**专门的回归范围产出物**，且其中列出了具体的 FR。
 
     早先的实现只在整个产出物文本里找「回归」两个字，结果是一份写着
     「回归范围未产出」的记录也会被判成通过——**检查项被它要检查的问题本身满足了**。
@@ -1016,9 +1016,9 @@ def _c_regression(ctx: Ctx):
         return (FAIL, "未见回归范围产出物（路径中应含「回归」）。"
                       "`ai-test-04-regression` 负责产出它；未产出时无法判断改动的影响面。")
     for rel, t in hits:
-        if FN_RE.search(t):
-            return (PASS, f"{rel}：已圈定回归范围，含具体 FN。")
-    return (FAIL, f"{hits[0][0]}：回归范围产出物中未见任何 FN 编号。"
+        if FR_RE.search(t):
+            return (PASS, f"{rel}：已圈定回归范围，含具体 FR。")
+    return (FAIL, f"{hits[0][0]}：回归范围产出物中未见任何 FR 编号。"
                   f"范围必须落到具体的功能点上，否则只是「相关模块都测一下」这类无法执行的描述。")
 
 
@@ -1036,7 +1036,7 @@ def _c_rollout(ctx: Ctx):
     return (PASS, f"已在 {len(hits)} 份交付类产出物中检到回滚方案。")
 
 
-@check("orphan-fn-no-req", "是否存在无 REQ 来源的 FN")
+@check("orphan-fr-no-req", "是否存在无 REQ 来源的 FR")
 def _c_orphan_req(ctx: Ctx):
     sec = ctx.parse_number_table()
     fn_sec = sec.get("功能点", [])
@@ -1049,11 +1049,11 @@ def _c_orphan_req(ctx: Ctx):
     if src_i is None:
         return (SKIP, "功能编号总表的「功能点」段缺少「来源 REQ」列，无法判断。"
                       "请按 `projects/<项目码>/projects/<项目码>/.agent/index/功能编号总表.md` 的表头补上该列。")
-    # 只有**合法编号**的行才可被校验。表格里保留的 `_示例_ FN-XXX-001` 这类占位行
+    # 只有**合法编号**的行才可被校验。表格里保留的 `_示例_ FR-XXX-001` 这类占位行
     # 不是真实编号——旧实现把它们算进 rows 却在校验时跳过，于是「有行但一行都没查」
     # 会报成 pass。这是最典型的空集假通过：什么都没验，却说"0 条断链"。
     valid = [r["cells"][0].strip("` ") for r in rows]
-    valid = [c for c in valid if FN_RE.fullmatch(c)]
+    valid = [c for c in valid if FR_RE.fullmatch(c)]
     if not valid:
         return (SKIP, f"功能编号总表的「功能点」段有 {len(rows)} 行，但都不是合法编号"
                       f"（多半是模板保留的示例行）。**没有可校验的对象，不等于没有断链。**"
@@ -1062,14 +1062,14 @@ def _c_orphan_req(ctx: Ctx):
     for r in rows:
         cells = r["cells"]
         fn = cells[0].strip("` ")
-        if not FN_RE.fullmatch(fn):
+        if not FR_RE.fullmatch(fn):
             continue
         src = cells[src_i] if src_i < len(cells) else ""
         if not REQ_RE.search(src or ""):
             orphans.append(fn)
     if orphans:
-        return (FAIL, f"{len(orphans)} 个 FN 没有来源 REQ（符合 STD-BASE-202）：" + "、".join(orphans[:8]))
-    return (PASS, f"总表中 {len(valid)} 个 FN 均有来源 REQ。")
+        return (FAIL, f"{len(orphans)} 个 FR 没有来源 REQ（《产品PRD与原型图约束规范》§6.1 要求需求与代码、接口、数据表双向追溯）：" + "、".join(orphans[:8]))
+    return (PASS, f"总表中 {len(valid)} 个 FR 均有来源 REQ。")
 
 
 @check("no-orphan-ids", "编号总表中是否有孤儿编号")
@@ -1081,7 +1081,7 @@ def _c_no_orphan(ctx: Ctx):
     fns = []
     for r in rows:
         fn = r["cells"][0].strip("` ")
-        if FN_RE.fullmatch(fn):
+        if FR_RE.fullmatch(fn):
             fns.append(fn)
     # 同上：占位行不算编号。零个编号时「全部被引用」是空话。
     if not fns:
@@ -1142,11 +1142,11 @@ def git_log(repo: Path, limit: int):
     """取提交历史。**跳过合并提交**（`--no-merges`）。
 
     合并提交是 Git 自动生成的（`Merge branch 'x' into 'release'`），
-    人**不可能**给它写 `<type>(<scope>): <subject>` 和 FN 编号。
+    人**不可能**给它写 `<type>(<scope>): <subject>` 和 FR 编号。
     不跳过它们，`commit-format` 会对所有走合并流（GitLab MR / GitHub PR）的仓库全红，
     而团队唯一能做的"修复"就是关掉这道门禁——那正是最坏的结局。
 
-    排除合并提交不影响追溯：真正带 FN 的是被合并的那些业务提交，它们仍在历史里。
+    排除合并提交不影响追溯：真正带 FR 的是被合并的那些业务提交，它们仍在历史里。
     """
     try:
         r = subprocess.run(

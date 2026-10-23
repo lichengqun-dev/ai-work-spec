@@ -69,7 +69,7 @@ current_step: delta-spec
 
 | # | 改什么 | 为什么 | 基线（原批次产出物 + 哈希） | 影响谁 |
 |---|---|---|---|---|
-| D-01 | API-CORE-008 加 groupId | REQ-CORE-031 | 接口契约.yaml @ sha256:7f3a… | FN-CORE-045、TC-045-01~05 |
+| D-01 | API-CORE-008 加 groupId | REQ-CORE-031 | 接口契约.yaml @ sha256:7f3a… | FR-CORE-045、TC-045-01~05 |
 ```
 
 产出结构——原批次状态文件的追加记录（**只追加，已有的内容一个字都不改**）：
@@ -78,7 +78,7 @@ current_step: delta-spec
 changed_by:
   - batch: PROJ-20260901-003-C1
     at: 2026-10-20
-    scope: [FN-CORE-045, FN-CORE-020]
+    scope: [FR-CORE-045, FR-CORE-020]
 ```
 
 ## 前置条件

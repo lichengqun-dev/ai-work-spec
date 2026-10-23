@@ -82,9 +82,9 @@ metadata:
 
 | 检查项 | 级别 | 抓什么 |
 |---|---|---|
-| `commit-format` | BLOCK | 提交格式与 FN 关联——追溯链的最后一环 |
+| `commit-format` | BLOCK | 提交格式与 FR 关联——追溯链的最后一环 |
 | `secrets-externalized` | BLOCK | 硬编码凭据——进 Git 历史后只能轮换密钥 |
-| `fn-has-commit` | WARN | 哪些 FN 没有提交 |
+| `fr-has-commit` | WARN | 哪些 FR 没有提交 |
 | `lint-passthrough` | BLOCK | **external**：需在项目仓执行 lint。不是"查不了"，是"不归执行器查"——签核时必须用 `--evidence` 说明 lint 结果记在哪 |
 | `unit-coverage-report` | WARN | **external**：需项目侧覆盖率报告。签核时用 `--evidence` 说明报告在哪、结论是什么 |
 
@@ -139,7 +139,7 @@ metadata:
 
 【自动检查】
 ✅ [1] 提交信息符合格式
-✅ [2] 每个 FN 都有对应的代码提交
+✅ [2] 每个 FR 都有对应的代码提交
 ✅ [3] 新增配置 / 密钥是否外置
 ⏭️  [4] 编码静态检查 —— skip（需在项目仓执行 lint）
 ⏭️  [5] 单元测试覆盖率 —— skip（需项目侧生成报告）

@@ -35,7 +35,7 @@ metadata:
 | 输入 | 来源 | 必需 | 校验规则 |
 |---|---|---|---|
 | 批次状态文件 | `projects/<项目码>/.agent/state/<批次号>.yaml` | 是 | 各 steps 已终态；gate-05 已 passed/waived |
-| 功能编号总表 | `projects/<项目码>/.agent/index/功能编号总表.md` | 是 | 含本批次的 REQ / FN / TC |
+| 功能编号总表 | `projects/<项目码>/.agent/index/功能编号总表.md` | 是 | 含本批次的 REQ / FR / TC |
 | 全部产出物 | 项目文档仓 `docs/` | 是 | 已登记在状态文件的 `artifacts` |
 | 测试报告 | `ai-test-05-report` 产出 | 是 | 含上线建议 |
 | 上线步骤 | `ai-iteration-04-release` 产出 | 是（gate-06 前置） | 含回滚方案 |
@@ -56,19 +56,19 @@ metadata:
 
 | # | 问题 | 影响 | 处置计划 | 负责人 |
 |---|---|---|---|---|
-| 1 | 3 条用例因第三方沙箱不可用未执行 | FN-CORE-047 的对接受阻未验证 | 沙箱恢复后 24 小时内补测 | 张三 |
-| 2 | FN-CORE-046 无提交关联（项目仓未接 git） | 无法回答该功能由哪次提交上线 | 接入 git 后重跑 gate-06 | 李四 |
+| 1 | 3 条用例因第三方沙箱不可用未执行 | FR-CORE-047 的对接受阻未验证 | 沙箱恢复后 24 小时内补测 | 张三 |
+| 2 | FR-CORE-046 无提交关联（项目仓未接 git） | 无法回答该功能由哪次提交上线 | 接入 git 后重跑 gate-06 | 李四 |
 ```
 
 **不要把遗留问题写得含糊。** "部分功能待完善"没有任何信息量；
-"3 条用例未执行、涉及 FN-CORE-047、原因是沙箱不可用"才能被处置。
+"3 条用例未执行、涉及 FR-CORE-047、原因是沙箱不可用"才能被处置。
 
 总表三列填什么：
 
 | 列 | 填什么 | 来源 |
 |---|---|---|
-| 覆盖用例 | `TC-FN-XXX-000-NN` | 测试用例文件 |
-| 提交 | commit hash 或 PR 号 | 代码仓 git log（按 FN 编号反查） |
+| 覆盖用例 | `TC-FR-XXX-000-NN` | 测试用例文件 |
+| 提交 | commit hash 或 PR 号 | 代码仓 git log（按 FR 编号反查） |
 | 批次 | 本批次号 | 当前批次 |
 
 **只填真实值。** 查不到的留空并在结项报告的遗留问题里写明——**不要填"待补"这种占位**，
@@ -81,7 +81,7 @@ metadata:
 - 批次状态文件存在，且各步骤为终态（`done` / `skipped` / `failed`），无 `in_progress`
   ——gate-06 的 `state-steps-final` 要求 `steps` 全部终态**且 `current_step` 在 `steps` 中**（精确匹配其一）
 - 状态文件记录了 `spec_snapshot.hash`（回答"这个批次用的是哪版规范"）
-- 功能编号总表已回填、含本批次的 REQ / FN / TC
+- 功能编号总表已回填、含本批次的 REQ / FR / TC
 - 产出物已登记在状态文件的 `artifacts`，且文件存在、哈希一致
 - `ai-gate-runner` 已实现（gate-06 的检查项由它执行）
 
@@ -98,26 +98,26 @@ metadata:
 
    | 类型 | 判据 | 级别 |
    |---|---|---|
-   | 无 REQ 来源的 FN | 总表「来源 REQ」列空 | **BLOCK** |
-   | 无设计章节的 FN | 该 FN 未出现在设计类产出物中 | **BLOCK** |
-   | 无测试用例覆盖的 FN | 该 FN 没有挂载的 `TC` | **BLOCK** |
-   | 无对应提交的 FN | 该 FN 未出现在任何提交信息中 | WARN |
+   | 无 REQ 来源的 FR | 总表「来源 REQ」列空 | **BLOCK** |
+   | 无设计章节的 FR | 该 FR 未出现在设计类产出物中 | **BLOCK** |
+   | 无测试用例覆盖的 FR | 该 FR 没有挂载的 `TC` | **BLOCK** |
+   | 无对应提交的 FR | 该 FR 未出现在任何提交信息中 | WARN |
    | 孤儿编号 | 总表有登记但无任何产出物引用 | WARN |
 
    **BLOCK 类非 0 → 拒绝归档。WARN 类非 0 → 归档，但写进结项报告的「遗留问题」节。**
    分级的理由：前两类是"东西缺了"，后两类是"没能证明它在"。
    后者可能是环境问题（没接 git、产出物命名不同），前者不是。
 
-   **不要在门禁通过后跳过断链检测**——门禁的 `fn-has-commit` 在项目仓不是 git 仓库时只能记 `skip`，
+   **不要在门禁通过后跳过断链检测**——门禁的 `fr-has-commit` 在项目仓不是 git 仓库时只能记 `skip`，
    那时断链数在门禁视图里显示为 0，而实际上只是"没查"。
 
    **断链了不要"顺手补上"。** 补链意味着补文档或补用例——**那是人的工作**。
    脚本能做的只是把断链指出来并定位到具体对象：
 
    ```
-   ❌ FN-CORE-047 没有挂载用例
-      定位：功能详细设计 §FN-CORE-047 存在，但测试用例文件中无 TC-FN-CORE-047-*
-      → 需补充用例，或确认该 FN 是否应被拆掉
+   ❌ FR-CORE-047 没有挂载用例
+      定位：功能详细设计 §FR-CORE-047 存在，但测试用例文件中无 TC-FR-CORE-047-*
+      → 需补充用例，或确认该 FR 是否应被拆掉
    ```
 
 3. **回填总表**：「覆盖用例」「提交」「批次」三列。这三列此前由谁填没有定义——本 Skill 负责。
@@ -166,10 +166,10 @@ metadata:
 门禁：gate-06 failed → 已修正后 passed（人工签核：演练）
 
 断链检测
-  无 REQ 来源的 FN    0
-  无设计章节的 FN      0
-  无测试用例覆盖的 FN  0
-  无对应提交的 FN      1（FN-CORE-046）—— WARN，已记入遗留问题
+  无 REQ 来源的 FR    0
+  无设计章节的 FR      0
+  无测试用例覆盖的 FR  0
+  无对应提交的 FR      1（FR-CORE-046）—— WARN，已记入遗留问题
   孤儿编号            0
 
 总表回填：覆盖用例 12 条、提交 1 条（1 条未校验）
@@ -195,5 +195,5 @@ metadata:
 - 上游：`ai-test-05-report`、`ai-iteration-04-release`
 - 下游：无（批次在这一步闭环）；后续该系统的改动走 `05_迭代开发` 的变更子批次
 - 依赖：`ai-gate-runner`（gate-06）
-- 门禁：gate-06 的 `orphan-fn-no-req`、`fn-coverage-design`、`fn-has-testcase`（BLOCK）、
-  `state-steps-final`（BLOCK）、`fn-has-commit`、`no-orphan-ids`、`artifacts-exist`（WARN）
+- 门禁：gate-06 的 `orphan-fr-no-req`、`fr-coverage-design`、`fr-has-testcase`（BLOCK）、
+  `state-steps-final`（BLOCK）、`fr-has-commit`、`no-orphan-ids`、`artifacts-exist`（WARN）

@@ -120,7 +120,7 @@ metadata:
 | 项目已存在原型工程仓（续做批次） | 走续做分支，只补缺的，不重建 |
 
 建仓前先看 `projects/<项目码>/.agent/project.yaml`：**如果本来就没打算配 `prototype_repo`，就不要建仓**——
-建了空仓反而会在 gate-02 里造成一次 `fail`（有仓但无 `data-fn` 标记），比如实记 `external` 更糟。
+建了空仓反而会在 gate-02 里造成一次 `fail`（有仓但无 `data-fr` 标记），比如实记 `external` 更糟。
 
 ## 独立执行
 

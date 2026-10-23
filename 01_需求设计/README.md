@@ -36,7 +36,7 @@ graph TD
 ```
 
 **两条路径进原型：** 没有设计稿就走 `03-prototype` 从零规划；已有 Figma / Axure 设计稿时走
-`ai-figma-axure-convert` 转换，但**产出必须与 `03-prototype` 同构**（可运行、每个可交互元素带 `data-fn`）——
+`ai-figma-axure-convert` 转换，但**产出必须与 `03-prototype` 同构**（可运行、每个可交互元素带 `data-fr`）——
 否则下游的 `04-prd` 与 gate-02 的覆盖率检查都读不了它。
 
 `ai-requirement-autopilot` 负责把这条链串起来，并在每道门禁处停下等人确认。
@@ -45,7 +45,8 @@ graph TD
 
 | 资产 | 位置 | 用途 |
 |---|---|---|
-| 需求文档规范 | `standards/需求文档规范.md` | 需求条目编号、验收标准写法 |
+| PRD 与原型约束 | `standards/产品PRD与原型图约束规范.md` | PRD / 原型图的章节结构、必填项与质量标准（§6.1 编号规则、§九 验收标准） |
+| PRD 与原型评审 | `standards/AI产品PRD与原型评审规范.md` | gate-01 / gate-02 的核查维度与判定规则 |
 | 需求分析规范范本 | `references/需求分析规范范本.md` | 02-analysis 的产出标准 |
 | 业务场景清单 | `references/业务场景清单.md` | 判断需求归属哪个业务场景（**当前为空骨架，待业务方填充**） |
 | 需求分析文档模板 | `templates/需求分析文档模板.md` | 02-analysis 的产出骨架 |
@@ -69,13 +70,13 @@ graph TD
 ├── CLAUDE.md                    ← 批次上下文（01-init 生成，随流程回写，≤80 行）
 └── <需求名>/01_需求/
     ├── 原始需求格式化.md          ← 02-analysis，条目带 REQ 编号
-    ├── 需求功能分析.md            ← 02-analysis，功能带 FN 编号与来源 REQ
+    ├── 需求功能分析.md            ← 02-analysis，功能带 FR 编号与来源 REQ
     ├── 需求问题汇总.md            ← 02-analysis，待澄清清单
-    ├── 原型规划.md                ← 03-prototype，页面清单 + PAGE 编号 + 页面↔FN 映射
+    ├── 原型规划.md                ← 03-prototype，页面清单 + PAGE 编号 + 页面↔FR 映射
     ├── 原型与功能映射.md          ← 03-prototype
-    ├── 页面原型映射表.md          ← 04-prd，PAGE ↔ FN ↔ PRD 章节
+    ├── 页面原型映射表.md          ← 04-prd，PAGE ↔ FR ↔ PRD 章节
     ├── 原型标记补齐说明.md        ← figma-axure-convert（仅走设计稿路径时产出）
-    └── PRD.md                     ← 04-prd，每个功能一节并标注 FN
+    └── PRD.md                     ← 04-prd，每个功能一节并标注 FR
 ```
 
 其余落位：
@@ -83,7 +84,7 @@ graph TD
 | 产出 | 去向 |
 |---|---|
 | 文档仓目录骨架（`<需求名>/00_批次` ~ `<需求名>/05_交付`） | 项目文档仓，由 01-init 创建 |
-| 原型工程（可运行工程 + 带 `data-fn` 的页面） | **独立的原型工程仓**——它是可运行的代码，与文档仓的评审节奏不同 |
+| 原型工程（可运行工程 + 带 `data-fr` 的页面） | **独立的原型工程仓**——它是可运行的代码，与文档仓的评审节奏不同 |
 | 批次状态文件、编号登记 | 本仓库 `projects/<项目码>/.agent/state/`、`projects/<项目码>/.agent/index/功能编号总表.md` |
 
-**产出物一律带编号**（`REQ` / `FN` / `PAGE`）。编号是追溯链的锚点，缺了它后面所有覆盖率检查都失效。
+**产出物一律带编号**（`REQ` / `FR` / `PAGE`）。编号是追溯链的锚点，缺了它后面所有覆盖率检查都失效。

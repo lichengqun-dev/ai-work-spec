@@ -186,7 +186,7 @@ artifacts: []
 # artifacts:
 #   - path: <需求名>/01_需求/需求功能分析.md      # 相对 docs_repo（见 projects/<项目码>/.agent/project.yaml）
 #     hash: sha256:ab12...
-#     fn_ids: [FN-CORE-045, FN-CORE-046]
+#     fr_ids: [FR-CORE-045, FR-CORE-046]
 #     produced_by: ai-requirement-02-analysis@2.5.0
 # 注意：目录型产出物（原型工程仓、代码仓）也可登记，执行器只核对存在性、不核对哈希。
 
@@ -195,7 +195,7 @@ pending_questions: []
 # pending_questions:
 #   - id: Q-001
 #     question: 导出是否包含已归档数据？
-#     affects: [REQ-CORE-012, FN-CORE-045]
+#     affects: [REQ-CORE-012, FR-CORE-045]
 #     need_answer_from: 业务方
 #     raised_at: 2026-10-19T10:12:00+08:00
 

@@ -14,14 +14,14 @@ waivable: partial
 
 - [ ] gate-03 已通过，接口契约处于冻结态
 - [ ] 单元测试已运行且通过
-- [ ] 提交信息包含 FN 编号
+- [ ] 提交信息包含 FR 编号
 
 ## 检查项
 
 | # | 检查内容 | 方式 | 阻断级别 | 失败处理 |
 |---|---|---|---|---|
 | 1 | 提交信息符合格式（符合 STD-BASE-002 / 003） | auto:commit-format | BLOCK | 拒绝合并 |
-| 2 | 每个 FN 都有对应的代码提交 | auto:fn-has-commit | WARN | 列出无提交的 FN |
+| 2 | 每个 FR 都有对应的代码提交 | auto:fr-has-commit | WARN | 列出无提交的 FR |
 | 3 | 新增配置 / 密钥是否外置（符合 STD-BASE-104） | auto:secrets-externalized | BLOCK | 拒绝合并，要求轮换密钥 |
 | 4 | 编码静态检查通过 | auto:lint-passthrough | BLOCK | 在项目仓执行 lint 后重跑 |
 | 5 | 单元测试覆盖率达标（核心模块分支覆盖） | auto:unit-coverage-report | WARN | 生成补齐待办 |

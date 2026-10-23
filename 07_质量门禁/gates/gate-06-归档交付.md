@@ -20,10 +20,10 @@ waivable: no
 
 | # | 检查内容 | 方式 | 阻断级别 | 失败处理 |
 |---|---|---|---|---|
-| 1 | 无 REQ 来源的 FN 数为 0 | auto:orphan-fn-no-req | BLOCK | 列出断链项 |
-| 2 | 无设计章节的 FN 数为 0 | auto:fn-coverage-design | BLOCK | 列出断链项 |
-| 3 | 无测试用例覆盖的 FN 数为 0 | auto:fn-has-testcase | BLOCK | 列出断链项 |
-| 4 | 无对应提交的 FN 数为 0 | auto:fn-has-commit | WARN | 列出断链项 |
+| 1 | 无 REQ 来源的 FR 数为 0 | auto:orphan-fr-no-req | BLOCK | 列出断链项 |
+| 2 | 无设计章节的 FR 数为 0 | auto:fr-coverage-design | BLOCK | 列出断链项 |
+| 3 | 无测试用例覆盖的 FR 数为 0 | auto:fr-has-testcase | BLOCK | 列出断链项 |
+| 4 | 无对应提交的 FR 数为 0 | auto:fr-has-commit | WARN | 列出断链项 |
 | 5 | 功能编号总表中无孤儿编号 | auto:no-orphan-ids | WARN | 清理或补链 |
 | 6 | 批次状态文件完整，各步骤状态已终态化 | auto:state-steps-final | BLOCK | 补齐状态 |
 | 7 | 产出物已归集且哈希未变 | auto:artifacts-exist | WARN | 生成待办 |

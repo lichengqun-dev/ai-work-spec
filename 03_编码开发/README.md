@@ -1,14 +1,14 @@
 # 03_编码开发
 
 > 工程骨架 → 后端实现 → 前端实现 → 单元测试 → 代码评审 → 文档回流。
-> **核心约束：按 `FN` 逐个交付，提交信息必须带 FN 编号。**
+> **核心约束：按 `FR` 逐个交付，提交信息必须带 FR 编号。**
 
 ## 本域的 Skill
 
 | Skill | 职责 | 状态 |
 |---|---|---|
 | [ai-dev-01-scaffold](./skills/ai-dev-01-scaffold/SKILL.md) | 工程骨架与模块划分（**不写业务逻辑**） | ✅ |
-| [ai-dev-02-backend](./skills/ai-dev-02-backend/SKILL.md) | 后端功能实现（按 FN 逐个交付） | ✅ |
+| [ai-dev-02-backend](./skills/ai-dev-02-backend/SKILL.md) | 后端功能实现（按 FR 逐个交付） | ✅ |
 | [ai-dev-03-frontend](./skills/ai-dev-03-frontend/SKILL.md) | 前端实现与联调（从原型迁移） | ✅ |
 | [ai-dev-04-unittest](./skills/ai-dev-04-unittest/SKILL.md) | 单元测试与覆盖率补齐 | ✅ |
 | [ai-dev-05-codereview](./skills/ai-dev-05-codereview/SKILL.md) | 执行 gate-04 代码评审 | ✅ |
@@ -35,16 +35,16 @@ graph TD
 
 ## 一句话说明本域的核心约束
 
-**提交信息必须带 `FN` 编号。**
+**提交信息必须带 `FR` 编号。**
 
 ```
-feat(FN-CORE-045): 列表页新增导出接口
+feat(FR-CORE-045): 列表页新增导出接口
 ```
 
-这是整条追溯链的最后一环。缺了它，`FN → 提交` 断裂，无法回答"这个功能是什么时候、由哪次提交上线的"，
-也无法做"没有对应提交的 FN"这类断链检测。gate-04 的 `commit-format` 是 **BLOCK** 级检查项。
+这是整条追溯链的最后一环。缺了它，`FR → 提交` 断裂，无法回答"这个功能是什么时候、由哪次提交上线的"，
+也无法做"没有对应提交的 FR"这类断链检测。gate-04 的 `commit-format` 是 **BLOCK** 级检查项。
 
-前端按页面交付更自然（一个页面对应多个 FN 是常态），此时在提交 body 中列全所有 FN 编号。
+前端按页面交付更自然（一个页面对应多个 FR 是常态），此时在提交 body 中列全所有 FR 编号。
 
 ## 产出物去向
 
@@ -79,7 +79,7 @@ feat(FN-CORE-045): 列表页新增导出接口
 |---|---|---|
 | 后端编码规范 | `standards/后端编码规范.md` | 跨技术栈的后端基线 |
 | 前端编码规范 | `standards/前端编码规范.md` | 跨框架的前端基线 |
-| 提交信息与分支规范 | `standards/提交信息与分支规范.md` | 提交格式与 FN 关联 |
+| 提交信息与分支规范 | `standards/提交信息与分支规范.md` | 提交格式与 FR 关联 |
 | 单元测试规范 | `standards/单元测试规范.md` | 可重复性、命名、覆盖要求 |
 | 安全基线 | `standards/安全基线.md` | `STD-BASE-101`~`106`：密钥外置、输入校验、审计留痕等红线 |
 | 规范包 | `09_资产库/规范包/stacks/` | **技术细节的唯一来源** |
